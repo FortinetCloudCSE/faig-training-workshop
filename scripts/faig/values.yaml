@@ -1,0 +1,146 @@
+# Self-contained values for llm-stack — single Azure-style target:
+# CPU-only, model baked into the llamacpp image, images pulled from a registry,
+# landing page served. No Ansible, no per-target overlay files.
+#
+# EDIT THESE TWO before first deploy (or override via deploy.sh env):
+#   1. <REGISTRY>  -> your registry host, e.g. myacr.azurecr.io
+#   2. global.imageTag -> the tag you push llamacpp/chatbot with
+#
+# If your images are PUBLIC (no private registry), delete every
+# `imagePullSecrets: [acr-pull]` line below and skip the secret step in deploy.sh.
+
+global:
+  imageTag: "latest"          # <-- set to your build tag
+
+llamacpp:
+  enabled: true
+  namespace: llamacpp
+
+  image:
+    repository: fortiaigate.azurecr.io/llamacpp
+    tag: "v1"                    # falls back to global.imageTag
+    pullPolicy: IfNotPresent
+
+  service:
+    port: 8080
+
+  ingress:
+    enabled: true
+    className: nginx
+    path: /llm
+    annotations:
+      nginx.ingress.kubernetes.io/rewrite-target: /$2
+      nginx.ingress.kubernetes.io/proxy-body-size: "0"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+
+  gpu:
+    enabled: false
+    count: 1
+
+  model:
+    source: baked             # model is in the image; no PVC, no fetch
+
+  # Passed verbatim to llama-server.
+  serverArgs:
+    - --model
+    - /models/model.gguf
+    - --alias
+    - llama3.2:3b
+    - --host
+    - 0.0.0.0
+    - --port
+    - "8080"
+    - --ctx-size
+    - "8192"
+    - --parallel
+    - "2"
+    - --threads
+    - "8"
+    - --threads-batch
+    - "8"
+    - --batch-size
+    - "1024"
+    - --ubatch-size
+    - "512"
+    - --n-predict
+    - "512"
+    - --cache-type-k
+    - q8_0
+    - --cache-type-v
+    - q8_0
+    - --flash-attn
+    - "on"
+    - --metrics
+    - --mlock
+    - --cache-reuse
+    - "256"
+
+  resources:
+    requests:
+      cpu: "1"
+      memory: 4Gi
+    limits:
+      cpu: "16"
+      memory: 8Gi
+
+chatbot:
+  enabled: true
+  namespace: chatbot
+  name: chatbot
+  replicas: 1
+
+  image:
+    repository: fortiaigate.azurecr.io/chatbot
+    tag: "v1"
+    pullPolicy: IfNotPresent
+
+  service:
+    port: 8501
+
+  ingress:
+    enabled: true
+    className: nginx
+    path: /chat
+    annotations:
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+      nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+
+  config:
+    # Must match llamacpp.namespace above: <svc>.<namespace>.svc.cluster.local
+    llmEndpoint: http://llamacpp.llamacpp.svc.cluster.local:8080/v1
+    llmModel: llama3.2:3b
+    llmTlsVerify: "false"
+    awsRegion: ca-central-1
+
+  secrets:
+    # Sentinel required: the OpenAI SDK rejects an empty api_key before sending,
+    # even though llama.cpp ignores it. Leave the Bedrock IDs blank unless used.
+    llmApiKey: sk-no-key-required
+    bedrockKnowledgeBaseId: ""
+    bedrockModelId: ""
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "4"
+      memory: 8Gi
+
+landing:
+  enabled: true
+  namespace: landing
+  image:
+    # Stock nginx. If the cluster can reach Docker Hub directly, change this to
+    # `nginx` and drop landing from the pull-secret loop in deploy.sh.
+    repository: nginx
+    tag: alpine                # stock nginx tag, not global.imageTag
+    pullPolicy: IfNotPresent
+  service:
+    port: 80
+  ingress:
+    enabled: true
+    className: nginx
+    annotations: {}

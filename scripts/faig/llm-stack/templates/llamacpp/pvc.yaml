@@ -1,0 +1,24 @@
+{{- if .Values.llamacpp.enabled }}
+{{- include "llm-stack.llamacpp.validateModelSource" .Values.llamacpp.model.source }}
+{{- end }}
+{{- if and .Values.llamacpp.enabled (eq .Values.llamacpp.model.source "pvc") }}
+{{- $pvc := .Values.llamacpp.model.pvc }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $pvc.claimName }}
+  namespace: {{ .Values.llamacpp.namespace }}
+  labels:
+    {{- include "llm-stack.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ $pvc.size }}
+  # Static binding to the PV created by roles/llamacpp. Both fields are required:
+  # an empty storageClassName opts out of dynamic provisioning, volumeName names
+  # the target PV.
+  storageClassName: {{ $pvc.storageClassName | quote }}
+  volumeName: {{ $pvc.volumeName }}
+{{- end }}

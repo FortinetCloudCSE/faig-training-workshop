@@ -1,0 +1,100 @@
+{{- if .Values.llamacpp.enabled }}
+{{- $llama := .Values.llamacpp }}
+{{- include "llm-stack.llamacpp.validateModelSource" $llama.model.source }}
+{{- $usePVC := eq $llama.model.source "pvc" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llamacpp
+  namespace: {{ $llama.namespace }}
+  labels:
+    app: llamacpp
+    {{- include "llm-stack.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    # RWO volume: a rolling update would deadlock on the PVC.
+    type: Recreate
+  selector:
+    matchLabels:
+      app: llamacpp
+  template:
+    metadata:
+      labels:
+        app: llamacpp
+    spec:
+      {{- include "llm-stack.imagePullSecrets" $llama | nindent 6 }}
+      {{- if $llama.gpu.enabled }}
+      # Routes the pod through nvidia-container-runtime so NVIDIA userspace
+      # libraries and /dev/nvidia* are injected. Matches the RuntimeClass
+      # applied by roles/gpu.
+      runtimeClassName: nvidia
+      {{- end }}
+      {{- if $usePVC }}
+      initContainers:
+        # Idempotent GGUF fetch: skip if the file is already on the volume.
+        # Partial writes go to .partial and are renamed at the end, so a torn
+        # download never leaves a truthy stub.
+        - name: model-fetch
+          image: {{ $llama.model.fetchImage }}
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -eu
+              dest="/models/{{ $llama.model.file }}"
+              if [ -s "$dest" ]; then
+                echo "Model present: $dest ($(stat -c%s "$dest") bytes) — skipping download"
+                exit 0
+              fi
+              echo "Downloading {{ $llama.model.url }} -> $dest"
+              tmp="$dest.partial"
+              curl -fL --retry 5 --retry-delay 10 -C - -o "$tmp" "{{ $llama.model.url }}"
+              mv "$tmp" "$dest"
+              echo "Done: $(stat -c%s "$dest") bytes"
+          volumeMounts:
+            - name: models
+              mountPath: /models
+      {{- end }}
+      containers:
+        - name: llama-server
+          image: {{ include "llm-stack.image" (dict "component" $llama "global" .Values.global) }}
+          imagePullPolicy: {{ $llama.image.pullPolicy }}
+          args: {{ toJson $llama.serverArgs }}
+          ports:
+            - containerPort: 8080
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            timeoutSeconds: 10
+          resources:
+            {{- $res := $llama.resources | default dict }}
+            {{- if $llama.gpu.enabled }}
+            {{- $gpuLimits := dict "nvidia.com/gpu" $llama.gpu.count }}
+            {{- $merged := merge (deepCopy $res) (dict "limits" $gpuLimits) }}
+            {{- toYaml $merged | nindent 12 }}
+            {{- else }}
+            {{- toYaml $res | nindent 12 }}
+            {{- end }}
+          {{- if $usePVC }}
+          volumeMounts:
+            - name: models
+              mountPath: /models
+          {{- end }}
+      {{- if $usePVC }}
+      volumes:
+        - name: models
+          persistentVolumeClaim:
+            claimName: {{ $llama.model.pvc.claimName }}
+      {{- end }}
+{{- end }}

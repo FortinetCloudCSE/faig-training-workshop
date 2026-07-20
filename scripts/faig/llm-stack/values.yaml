@@ -1,0 +1,158 @@
+# Defaults for llm-stack. Per-target overrides live in values-azure.yaml and
+# values-k3s.yaml — this file is the shape both start from.
+
+global:
+  # Fallback tag for any component that doesn't set image.tag.
+  imageTag: ""
+
+llamacpp:
+  enabled: true
+  namespace: llamacpp
+
+  image:
+    repository: llamacpp
+    tag: ""            # falls back to global.imageTag
+    pullPolicy: IfNotPresent
+  imagePullSecrets: []
+
+  service:
+    port: 8080
+
+  ingress:
+    enabled: true
+    className: nginx
+    # The (/|$)(.*) capture feeds the rewrite-target annotation below.
+    path: /llm
+    annotations:
+      nginx.ingress.kubernetes.io/rewrite-target: /$2
+      nginx.ingress.kubernetes.io/proxy-body-size: "0"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+
+  gpu:
+    # true → runtimeClassName: nvidia + nvidia.com/gpu in resources.limits
+    enabled: false
+    count: 1
+
+  model:
+    # baked = model is in the image (Azure). pvc = fetch it into a PVC (k3s).
+    source: baked
+    # Only used when source: pvc
+    url: ""
+    file: ""
+    fetchImage: curlimages/curl:8.10.1
+    pvc:
+      claimName: llamacpp-models-pvc
+      # The k3s PVC binds statically to a role-managed hostPath PV, so it
+      # names a volume and takes no StorageClass. Empty string, not null.
+      volumeName: llamacpp-models-pv
+      storageClassName: ""
+      size: 30Gi
+
+  # Passed verbatim to llama-server. roles/llamacpp computes this list from its
+  # ~25 dials; Azure uses the default below.
+  serverArgs:
+    - --model
+    - /models/model.gguf
+    - --alias
+    - llama3.2:3b
+    - --host
+    - 0.0.0.0
+    - --port
+    - "8080"
+    - --ctx-size
+    - "8192"
+    - --parallel
+    - "2"
+    - --threads
+    - "8"
+    - --threads-batch
+    - "8"
+    - --batch-size
+    - "1024"
+    - --ubatch-size
+    - "512"
+    - --n-predict
+    - "512"
+    - --cache-type-k
+    - q8_0
+    - --cache-type-v
+    - q8_0
+    - --flash-attn
+    - "on"
+    - --metrics
+    - --mlock
+    - --cache-reuse
+    - "256"
+
+  resources:
+    requests:
+      cpu: "1"
+      memory: 4Gi
+    limits:
+      cpu: "8"
+      memory: 8Gi
+
+chatbot:
+  enabled: true
+  namespace: chatbot
+  name: chatbot
+  replicas: 1
+
+  image:
+    repository: chatbot
+    tag: ""
+    pullPolicy: IfNotPresent
+  imagePullSecrets: []
+
+  service:
+    port: 8501
+
+  ingress:
+    enabled: true
+    className: nginx
+    # Also the base for the health probe path: <path>/_stcore/health.
+    # Streamlit runs with --server.baseUrlPath=/chat and serves it natively,
+    # so no rewrite annotation.
+    path: /chat
+    annotations:
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+      nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+
+  # Non-secret env, rendered into a ConfigMap.
+  config:
+    llmEndpoint: http://llamacpp.llamacpp.svc.cluster.local:8080/v1
+    llmModel: llama3.2:3b
+    llmTlsVerify: "false"
+    awsRegion: ca-central-1
+
+  # Secret env. The sentinel below is required: the OpenAI SDK rejects an empty
+  # api_key before sending anything, even though llama.cpp doesn't validate it.
+  secrets:
+    llmApiKey: sk-no-key-required
+    bedrockKnowledgeBaseId: ""
+    bedrockModelId: ""
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+landing:
+  enabled: true
+  namespace: landing
+  image:
+    repository: nginx
+    tag: alpine        # not global.imageTag — this is stock nginx
+    pullPolicy: IfNotPresent
+  imagePullSecrets: []
+  service:
+    port: 80
+  ingress:
+    enabled: true
+    className: nginx
+    annotations: {}

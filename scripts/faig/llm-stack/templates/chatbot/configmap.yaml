@@ -1,0 +1,14 @@
+{{- if .Values.chatbot.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.chatbot.name }}-config
+  namespace: {{ .Values.chatbot.namespace }}
+  labels:
+    {{- include "llm-stack.labels" . | nindent 4 }}
+data:
+  LLM_ENDPOINT: {{ .Values.chatbot.config.llmEndpoint | quote }}
+  LLM_MODEL: {{ .Values.chatbot.config.llmModel | quote }}
+  LLM_TLS_VERIFY: {{ .Values.chatbot.config.llmTlsVerify | quote }}
+  AWS_REGION: {{ .Values.chatbot.config.awsRegion | quote }}
+{{- end }}

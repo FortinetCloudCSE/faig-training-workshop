@@ -1,0 +1,12 @@
+{{- if .Values.landing.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: landing-html
+  namespace: {{ .Values.landing.namespace }}
+  labels:
+    {{- include "llm-stack.labels" . | nindent 4 }}
+data:
+  index.html: |
+{{ .Files.Get "files/landing/index.html" | indent 4 }}
+{{- end }}

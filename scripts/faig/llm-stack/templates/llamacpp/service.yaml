@@ -1,0 +1,18 @@
+{{- if .Values.llamacpp.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: llamacpp
+  namespace: {{ .Values.llamacpp.namespace }}
+  labels:
+    app: llamacpp
+    {{- include "llm-stack.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app: llamacpp
+  ports:
+    - name: http
+      port: {{ .Values.llamacpp.service.port }}
+      targetPort: 8080
+{{- end }}

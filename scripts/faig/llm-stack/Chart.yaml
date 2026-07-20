@@ -1,0 +1,6 @@
+apiVersion: v2
+name: llm-stack
+description: llama.cpp, a Streamlit chatbot, and a landing page — deployed to k3s or an Azure VM cluster from one chart
+type: application
+version: 0.1.0
+appVersion: "1.0"

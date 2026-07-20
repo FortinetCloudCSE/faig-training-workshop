@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FortiAIGate Lab</title>
+<style>
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;font-family:system-ui,Segoe UI,Roboto,sans-serif;}
+  body{display:flex;flex-direction:column;}
+  header{background:#0b1e2d;color:#fff;display:flex;align-items:center;padding:0 16px;height:52px;flex:0 0 auto;}
+  header .brand{font-weight:600;margin-right:24px;letter-spacing:.3px;}
+  header .brand span{color:#ee3124;}
+  .tab{background:transparent;color:#9fb3c8;border:0;border-bottom:3px solid transparent;height:52px;padding:0 20px;font-size:15px;cursor:pointer;}
+  .tab:hover{color:#fff;}
+  .tab.active{color:#fff;border-bottom-color:#ee3124;}
+  .frames{position:relative;flex:1 1 auto;}
+  .frames>*{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff;}
+  .frames>*.hidden{display:none;}
+  /* FortiAIGate can't be iframed (CSP frame-ancestors 'none'), so its panel is
+     a launch card instead of an embedded frame. */
+  .launch{display:flex;align-items:center;justify-content:center;background:#f4f6f8;}
+  .card{max-width:460px;text-align:center;padding:40px;}
+  .card h1{margin:0 0 8px;font-size:26px;color:#0b1e2d;}
+  .card h1 span{color:#ee3124;}
+  .card p{color:#5b6b7a;margin:6px 0;}
+  .card .btn{display:inline-block;margin:18px 0 10px;padding:12px 26px;background:#ee3124;color:#fff;
+             text-decoration:none;border-radius:6px;font-weight:600;font-size:15px;}
+  .card .btn:hover{background:#c92616;}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">Forti<span>AIGate</span> Lab</div>
+  <button class="tab active" data-target="chat" onclick="show('chat')">Chatbot</button>
+  <button class="tab" data-target="llm" onclick="show('llm')">LLM API</button>
+  <button class="tab" data-target="faig" onclick="show('faig')">FortiAIGate</button>
+</header>
+<div class="frames">
+  <iframe id="chat" src="/chat/"></iframe>
+  <iframe id="llm" class="hidden" src="/llm/"></iframe>
+  <div id="faig" class="launch hidden">
+    <div class="card">
+      <h1>Forti<span>AIGate</span></h1>
+      <p>AI-powered security scanning. The licensed product WebUI.</p>
+      <a class="btn" href="/ui/" target="_blank" rel="noopener">Open FortiAIGate WebUI &#8599;</a>
+    </div>
+  </div>
+</div>
+<script>
+function show(id){
+  document.querySelectorAll(".frames > *").forEach(function(el){el.classList.toggle("hidden",el.id!==id);});
+  document.querySelectorAll(".tab").forEach(function(t){t.classList.toggle("active",t.dataset.target===id);});
+}
+</script>
+</body>
+</html>

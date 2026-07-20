@@ -1,0 +1,19 @@
+{{- if .Values.chatbot.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.chatbot.name }}
+  namespace: {{ .Values.chatbot.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ .Values.chatbot.name }}
+    {{- include "llm-stack.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ .Values.chatbot.name }}
+  ports:
+    - name: http
+      port: {{ .Values.chatbot.service.port }}
+      targetPort: 8501
+      protocol: TCP
+{{- end }}

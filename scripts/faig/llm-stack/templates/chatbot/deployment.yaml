@@ -1,0 +1,54 @@
+{{- if .Values.chatbot.enabled }}
+{{- $cb := .Values.chatbot }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $cb.name }}
+  namespace: {{ $cb.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ $cb.name }}
+    {{- include "llm-stack.labels" . | nindent 4 }}
+spec:
+  replicas: {{ $cb.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $cb.name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ $cb.name }}
+      annotations:
+        # Roll the pod when config or secrets change.
+        checksum/config: {{ include (print $.Template.BasePath "/chatbot/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/chatbot/secret.yaml") . | sha256sum }}
+    spec:
+      {{- include "llm-stack.imagePullSecrets" $cb | nindent 6 }}
+      containers:
+        - name: chatbot
+          image: {{ include "llm-stack.image" (dict "component" $cb "global" .Values.global) }}
+          imagePullPolicy: {{ $cb.image.pullPolicy }}
+          ports:
+            - containerPort: 8501
+              name: http
+          envFrom:
+            - configMapRef:
+                name: {{ $cb.name }}-config
+            - secretRef:
+                name: {{ $cb.name }}-secrets
+          readinessProbe:
+            httpGet:
+              path: {{ printf "%s/_stcore/health" $cb.ingress.path }}
+              port: 8501
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: {{ printf "%s/_stcore/health" $cb.ingress.path }}
+              port: 8501
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+          resources:
+            {{- toYaml $cb.resources | nindent 12 }}
+{{- end }}

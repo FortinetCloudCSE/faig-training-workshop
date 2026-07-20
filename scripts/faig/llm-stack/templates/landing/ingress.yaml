@@ -1,0 +1,22 @@
+{{- if and .Values.landing.enabled .Values.landing.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: landing
+  namespace: {{ .Values.landing.namespace }}
+  labels:
+    {{- include "llm-stack.labels" . | nindent 4 }}
+  {{- with .Values.landing.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ingressClassName: {{ .Values.landing.ingress.className }}
+  # No rules — defaultBackend replaces the catch-all location /.
+  # /chat and /llm keep their own specific locations and still win.
+  defaultBackend:
+    service:
+      name: landing
+      port:
+        number: {{ .Values.landing.service.port }}
+{{- end }}
