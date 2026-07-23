@@ -147,7 +147,7 @@ helm upgrade --install "$RELEASE" "$CHART_DIR" \
 # 4b. Force llamacpp + chatbot to re-pull and restart so a newly-pushed image on
 #     the same tag is picked up. helm upgrade alone won't notice (unchanged tag).
 #     landing is stock nginx and deliberately untouched.
-if [[ "$REPULL" == "1" ]]; then
+if [[ "$REPULL" != "0" ]]; then
   # ns:deploy pairs for the app containers, in restart order.
   for pair in "llamacpp:llamacpp" "chatbot:chatbot"; do
     ns="${pair%%:*}"
