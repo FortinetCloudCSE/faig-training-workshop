@@ -135,3 +135,9 @@ landing:
   service:
     port: 80
     type: LoadBalancer
+  # HTTPS on the landing nginx. Cert lives in a tls-type Secret created by
+  # deploy.sh (self-signed, lab-grade). When enabled the Service also exposes
+  # 443 on the same LoadBalancer IP.
+  tls:
+    enabled: true
+    secretName: landing-tls

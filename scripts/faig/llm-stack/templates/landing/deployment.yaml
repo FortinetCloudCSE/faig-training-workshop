@@ -28,12 +28,20 @@ spec:
           imagePullPolicy: {{ $l.image.pullPolicy }}
           ports:
             - containerPort: 80
+            {{- if $l.tls.enabled }}
+            - containerPort: 443
+            {{- end }}
           volumeMounts:
             - name: html
               mountPath: /usr/share/nginx/html
             - name: nginx-conf
               mountPath: /etc/nginx/conf.d/default.conf
               subPath: default.conf
+            {{- if $l.tls.enabled }}
+            - name: tls
+              mountPath: /etc/nginx/tls
+              readOnly: true
+            {{- end }}
       volumes:
         - name: html
           configMap:
@@ -41,4 +49,9 @@ spec:
         - name: nginx-conf
           configMap:
             name: landing-nginx
+        {{- if $l.tls.enabled }}
+        - name: tls
+          secret:
+            secretName: {{ $l.tls.secretName }}
+        {{- end }}
 {{- end }}

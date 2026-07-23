@@ -11,6 +11,12 @@ spec:
   selector:
     app: landing
   ports:
-    - port: {{ .Values.landing.service.port }}
+    - name: http
+      port: {{ .Values.landing.service.port }}
       targetPort: 80
+    {{- if .Values.landing.tls.enabled }}
+    - name: https
+      port: 443
+      targetPort: 443
+    {{- end }}
 {{- end }}
