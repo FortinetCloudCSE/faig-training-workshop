@@ -1,9 +1,9 @@
 {
   "repoName":"UserRepo",
-  "author":"Jeff Kopko",
-  "workshopTitle":"Hugo for Fortinet TECWorkshops",
+  "author":"Tom Walsh",
+  "workshopTitle":"How to Deply and Use FortiAIGate ",
   "themeVariant":"CloudCSEMovie",
-  "logoBannerText":"FortiHugo",
+  "logoBannerText":"FortiAIGate Roadshow",
   "logoBannerSubText":"",
   "errorLevel":"warning",
   "googleServicesID":"G-5RZBH288ST",
@@ -12,28 +12,10 @@
   "videoHeaderInterval": "60",
   "shortcuts": [
   {
-    "text": "Fortinet Cloud CSE GitHub Org",
-    "URL": "https://github.com/FortinetCloudCSE",
-    "icon": "fa-graduation-cap",
+    "text": "FortiAIGate Admin Guide",
+    "URL": "https://docs.fortinet.com/document/fortiaigate/8.0.1/fortiaigate-administration-guide/653020/what-s-new-in-fortiaigate-8-0-1",
+    "icon": "fa-robot",
     "weight":10
-  },
-  {
-    "text": "Fortinet Standard Workshop Guide",
-    "URL": "https://fortinetcloudcse.github.io/UserRepo",
-    "icon": "fa-tools",
-    "weight":20
-  },
-  {
-    "text": "Fortinet Standard Workshop Template Repo",
-    "URL": "https://github.com/FortinetCloudCSE/UserRepo",
-    "icon": "fa-tools",
-    "weight":30
-  },
-  {
-    "text": "Fortinet Hugo reLearn theme - Guide",
-    "URL": "https://mcshelby.github.io/hugo-theme-relearn/index.html",
-    "icon": "fa-tools",
-    "weight":40
   }
   ]
 }
