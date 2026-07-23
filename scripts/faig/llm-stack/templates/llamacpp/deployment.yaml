@@ -61,7 +61,7 @@ spec:
           imagePullPolicy: {{ $llama.image.pullPolicy }}
           args: {{ toJson $llama.serverArgs }}
           securityContext:
-            {{- toYaml .Values.llamacpp.securityContext | nindent 6 }}
+            {{- toYaml .Values.llamacpp.securityContext | nindent 12 }}
           ports:
             - containerPort: 8080
               name: http
