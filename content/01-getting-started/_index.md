@@ -5,7 +5,7 @@ weight: 10
 ---
 
 ## Initial Environment
-This lab requires you have a working Kubernetes (K8s) environment in Azure. We will be using `helm` via the Azure Cloud Console to setup the intial pods that we will use during this session.
+This lab requires you have a working Kubernetes (K8s) environment in Azure. We will be using `helm` via the Azure Cloud Console to setup the existing nodes and pods that we will use during this session.
 
 ## Complete Previous Labs First
 This lab requires you to have completed the following sections from the "k8s01-101-workshop":
@@ -19,7 +19,11 @@ Let's confirm that the environment is setup correctly and has everything we need
 
 1. Log into [Azure](https://portal.azure.com/) with your student credentials.
 
-1. Access the Azure Cloud Console. The following commands will all be executed from the Cloud Console. If you can't access the Azure Portal or the Azure Cloud Shell please re-run the "Task 1 - Setup Azure Cloud Shell" from the section above.
+1. Access the Azure Cloud Console. The following commands will all be executed from the Cloud Console. 
+
+    ![Azure Cloud Console](<CleanShot 2026-07-23 at 17.22.57.png>)
+
+    If you can't access the Azure Portal or the Azure Cloud Shell please re-run the "Task 1 - Setup Azure Cloud Shell" from the section above.
 
 1. First we will look to see that we have the VMs running in our environment (no VMs, no K8s):
 
@@ -58,4 +62,31 @@ Let's confirm that the environment is setup correctly and has everything we need
 
     `version.BuildInfo{Version:"v4.1", GitCommit:"c94d381b03be117e7e57908edbf642104e00eb8f", GitTreeState:"clean", GoVersion:"go1.26.4", KubeClientVersion:"v1.35"}`
 
-1. 
+1. Make sure we have a CNI (Container Network Interface - how containers talk to each other in K8s) installed:
+
+    `kubectl get pods -A | grep -E "(calico|flannel|weave|cilium)"`
+
+    You should see output that looks something like this:
+
+    ```
+    calico-apiserver   calico-apiserver-79c7f68748-fhwnt         1/1     Running   0          3d4h
+    calico-apiserver   calico-apiserver-79c7f68748-ndv77         1/1     Running   0          3d4h
+    calico-system      calico-kube-controllers-96b9d54b7-5zzt4   1/1     Running   0          3d4h
+    calico-system      calico-node-84jf4                         1/1     Running   0          3d4h
+    calico-system      calico-node-s5r8m                         1/1     Running   0          3d3h
+    calico-system      calico-typha-6979dd87cd-v7gtb             1/1     Running   0          3d4h
+    calico-system      csi-node-driver-l2rmb                     2/2     Running   0          3d4h
+    calico-system      csi-node-driver-vgcsn                     2/2     Running   0          3d3h
+    ```
+
+    We install Calico as part of our K8s deployment in the previous steps, but if you were deploying this on a customer's K8s environment you would want to make sure they have an operational CNI.
+
+### What about Storage
+FortiAIGate also requires NFS storage to be setup in K8s. In this environment we are running multiple nodes, but all the pods will run on one container so we don't have to worry about that.
+
+But if you want to test that out and confirm use the following command:
+
+`kubectl get storageclass`
+
+## All Set?
+If you have passed all of these checks then you are ready to progress to the next section.
