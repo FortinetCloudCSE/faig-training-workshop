@@ -24,7 +24,7 @@ llamacpp:
   image:
     repository: fortiaigate.azurecr.io/llamacpp
     tag: "v1"                    # falls back to global.imageTag
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
 
   service:
     port: 8080
@@ -90,7 +90,7 @@ chatbot:
   image:
     repository: fortiaigate.azurecr.io/chatbot
     tag: "v1"
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
 
   service:
     port: 8501

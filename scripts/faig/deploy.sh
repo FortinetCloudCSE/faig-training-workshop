@@ -22,6 +22,13 @@ REGISTRY="${REGISTRY:-}"          # e.g. myacr.azurecr.io
 IMAGE_TAG="${IMAGE_TAG:-}"        # e.g. 2026-07-17
 ACR_NAME="${ACR_NAME:-}"          # set to auto-create the acr-pull secret from ACR admin creds
 
+# Force a re-pull + restart of the app containers (llamacpp, chatbot) after the
+# helm upgrade so a newly-pushed image on the same tag is picked up. These images
+# use imagePullPolicy: Always (values.yaml), so recreating the pod pulls the tag
+# fresh. Set REPULL=0 to skip (e.g. when only tweaking landing/config and you
+# don't want to pay the llamacpp model reload).
+REPULL="${REPULL:-1}"
+
 apply() { kubectl apply -f - ; }
 
 # 1. MetalLB — bare-metal LoadBalancer provider. Install only if absent.
@@ -136,6 +143,26 @@ helm upgrade --install "$RELEASE" "$CHART_DIR" \
   "${SET_ARGS[@]}" \
   --namespace llamacpp \
   --wait --timeout 10m
+
+# 4b. Force llamacpp + chatbot to re-pull and restart so a newly-pushed image on
+#     the same tag is picked up. helm upgrade alone won't notice (unchanged tag).
+#     landing is stock nginx and deliberately untouched.
+if [[ "$REPULL" != "0" ]]; then
+  # ns:deploy pairs for the app containers, in restart order.
+  for pair in "llamacpp:llamacpp" "chatbot:chatbot"; do
+    ns="${pair%%:*}"
+    dep="${pair##*:}"
+    if kubectl -n "$ns" get deploy "$dep" >/dev/null 2>&1; then
+      echo ">> repull: restarting deploy/$dep in $ns"
+      kubectl -n "$ns" rollout restart "deploy/$dep"
+      kubectl -n "$ns" rollout status "deploy/$dep" --timeout=10m
+    else
+      echo ">> repull: deploy/$dep not found in $ns — skipping"
+    fi
+  done
+else
+  echo ">> REPULL=0 — skipping app container restart"
+fi
 
 # 5. Print URLs from the landing LoadBalancer IP.
 echo ">> waiting for landing LoadBalancer IP"
