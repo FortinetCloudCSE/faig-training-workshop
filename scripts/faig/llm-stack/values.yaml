@@ -17,17 +17,8 @@ llamacpp:
 
   service:
     port: 8080
-
-  ingress:
-    enabled: true
-    className: nginx
-    # The (/|$)(.*) capture feeds the rewrite-target annotation below.
-    path: /llm
-    annotations:
-      nginx.ingress.kubernetes.io/rewrite-target: /$2
-      nginx.ingress.kubernetes.io/proxy-body-size: "0"
-      nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-      nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+  # Path prefix the landing nginx proxies to this service (prefix stripped).
+  path: /llm
 
   gpu:
     # true → runtimeClassName: nvidia + nvidia.com/gpu in resources.limits
@@ -107,18 +98,9 @@ chatbot:
 
   service:
     port: 8501
-
-  ingress:
-    enabled: true
-    className: nginx
-    # Also the base for the health probe path: <path>/_stcore/health.
-    # Streamlit runs with --server.baseUrlPath=/chat and serves it natively,
-    # so no rewrite annotation.
-    path: /chat
-    annotations:
-      nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-      nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
-      nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+  # Path prefix the landing nginx proxies to this service (prefix KEPT — the
+  # chatbot image is baked with Streamlit baseUrlPath=/chat).
+  path: /chat
 
   # Non-secret env, rendered into a ConfigMap.
   config:
@@ -152,7 +134,4 @@ landing:
   imagePullSecrets: []
   service:
     port: 80
-  ingress:
-    enabled: true
-    className: nginx
-    annotations: {}
+    type: LoadBalancer

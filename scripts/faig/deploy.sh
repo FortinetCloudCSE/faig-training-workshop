@@ -24,14 +24,52 @@ ACR_NAME="${ACR_NAME:-}"          # set to auto-create the acr-pull secret from 
 
 apply() { kubectl apply -f - ; }
 
-# 1. ingress-nginx — install only if no nginx ingressclass exists.
-if kubectl get ingressclass nginx >/dev/null 2>&1; then
-  echo ">> ingress-nginx present — reusing it"
+# 1. MetalLB — bare-metal LoadBalancer provider. Install only if absent.
+#    This runs BEFORE the workload so type:LoadBalancer Services get an IP.
+if kubectl -n metallb-system rollout status deploy/controller --timeout=1s >/dev/null 2>&1; then
+  echo ">> metallb present — reusing it"
 else
-  echo ">> installing ingress-nginx"
-  helm upgrade --install ingress-nginx ingress-nginx \
-    --repo https://kubernetes.github.io/ingress-nginx \
-    --namespace ingress-nginx --create-namespace --wait
+  echo ">> installing metallb v0.14.3"
+  kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.14.3/config/manifests/metallb-native.yaml
+  kubectl -n metallb-system rollout status deploy/controller --timeout=180s
+  kubectl -n metallb-system rollout status ds/speaker --timeout=180s
+  LOCAL_IP="$(kubectl get node -o wide | awk '/control-plane/{print $6; exit}')"
+  if [[ -z "$LOCAL_IP" ]]; then
+    echo "!! could not determine control-plane node IP" >&2
+    exit 1
+  fi
+  echo ">> metallb pool = ${LOCAL_IP}/32"
+  # The validating webhook may not be serving yet right after the controller
+  # rollout completes, so retry the pool apply a few times before giving up.
+  pool_applied=""
+  for attempt in $(seq 1 10); do
+    if kubectl apply -f - <<EOF
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: first-pool
+  namespace: metallb-system
+spec:
+  addresses:
+    - ${LOCAL_IP}/32
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: example
+  namespace: metallb-system
+EOF
+    then
+      pool_applied="1"
+      break
+    fi
+    echo ">> IPAddressPool apply failed (attempt ${attempt}/10) — webhook may not be ready yet, retrying in 5s"
+    sleep 5
+  done
+  if [[ -z "$pool_applied" ]]; then
+    echo "!! failed to apply MetalLB IPAddressPool/L2Advertisement after 10 attempts" >&2
+    exit 1
+  fi
 fi
 
 # 2. Namespaces (the chart does not create them).
@@ -74,13 +112,23 @@ helm upgrade --install "$RELEASE" "$CHART_DIR" \
   --namespace llamacpp \
   --wait --timeout 10m
 
-# 5. Print URLs.
-NODE_IP="$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')"
+# 5. Print URLs from the landing LoadBalancer IP.
+echo ">> waiting for landing LoadBalancer IP"
+LB_IP=""
+for _ in $(seq 1 30); do
+  LB_IP="$(kubectl -n "${NS_LIST[2]}" get svc landing \
+    -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)"
+  [[ -n "$LB_IP" ]] && break
+  sleep 2
+done
+if [[ -z "$LB_IP" ]]; then
+  echo "!! landing Service has no LoadBalancer IP yet — check: kubectl -n ${NS_LIST[2]} get svc landing" >&2
+  LB_IP="<pending>"
+fi
 cat <<EOF
 
->> Deployed. Access (self-signed cert — expect a browser warning):
-   Landing : https://${NODE_IP}/
-   Chatbot : https://${NODE_IP}/chat/
-   LLM API : https://${NODE_IP}/llm/v1/models
-   (Substitute the public IP / DNS that fronts your nodes for ${NODE_IP}.)
+>> Deployed. Access:
+   Landing : http://${LB_IP}/
+   Chatbot : http://${LB_IP}/chat/
+   LLM API : http://${LB_IP}/llm/v1/models
 EOF

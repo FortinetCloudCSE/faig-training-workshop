@@ -16,6 +16,11 @@ llamacpp:
   enabled: true
   namespace: llamacpp
 
+  securityContext:
+    capabilities:
+      add:
+        - IPC_LOCK
+
   image:
     repository: fortiaigate.azurecr.io/llamacpp
     tag: "v1"                    # falls back to global.imageTag
@@ -24,15 +29,7 @@ llamacpp:
   service:
     port: 8080
 
-  ingress:
-    enabled: true
-    className: nginx
-    path: /llm
-    annotations:
-      nginx.ingress.kubernetes.io/rewrite-target: /$2
-      nginx.ingress.kubernetes.io/proxy-body-size: "0"
-      nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-      nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+  path: /llm
 
   gpu:
     enabled: false
@@ -46,7 +43,7 @@ llamacpp:
     - --model
     - /models/model.gguf
     - --alias
-    - llama3.2:3b
+    - llama3.2:1b
     - --host
     - 0.0.0.0
     - --port
@@ -58,11 +55,11 @@ llamacpp:
     - --threads
     - "8"
     - --threads-batch
-    - "8"
+    - "12"
     - --batch-size
     - "1024"
     - --ubatch-size
-    - "512"
+    - "1024"
     - --n-predict
     - "512"
     - --cache-type-k
@@ -74,7 +71,7 @@ llamacpp:
     - --metrics
     - --mlock
     - --cache-reuse
-    - "256"
+    - "1024"
 
   resources:
     requests:
@@ -98,19 +95,12 @@ chatbot:
   service:
     port: 8501
 
-  ingress:
-    enabled: true
-    className: nginx
-    path: /chat
-    annotations:
-      nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-      nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
-      nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+  path: /chat
 
   config:
     # Must match llamacpp.namespace above: <svc>.<namespace>.svc.cluster.local
     llmEndpoint: http://llamacpp.llamacpp.svc.cluster.local:8080/v1
-    llmModel: llama3.2:3b
+    llmModel: llama3.2:1b
     llmTlsVerify: "false"
     awsRegion: ca-central-1
 
@@ -140,7 +130,4 @@ landing:
     pullPolicy: IfNotPresent
   service:
     port: 80
-  ingress:
-    enabled: true
-    className: nginx
-    annotations: {}
+    type: LoadBalancer

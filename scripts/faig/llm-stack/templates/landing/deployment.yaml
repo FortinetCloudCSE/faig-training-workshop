@@ -19,6 +19,7 @@ spec:
       annotations:
         # Roll the pod when the HTML changes.
         checksum/config: {{ include (print $.Template.BasePath "/landing/configmap.yaml") . | sha256sum }}
+        checksum/nginx: {{ include (print $.Template.BasePath "/landing/nginx-config.yaml") . | sha256sum }}
     spec:
       {{- include "llm-stack.imagePullSecrets" $l | nindent 6 }}
       containers:
@@ -30,8 +31,14 @@ spec:
           volumeMounts:
             - name: html
               mountPath: /usr/share/nginx/html
+            - name: nginx-conf
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
       volumes:
         - name: html
           configMap:
             name: landing-html
+        - name: nginx-conf
+          configMap:
+            name: landing-nginx
 {{- end }}

@@ -37,14 +37,14 @@ spec:
                 name: {{ $cb.name }}-secrets
           readinessProbe:
             httpGet:
-              path: {{ printf "%s/_stcore/health" $cb.ingress.path }}
+              path: {{ printf "%s/_stcore/health" $cb.path }}
               port: 8501
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 3
           livenessProbe:
             httpGet:
-              path: {{ printf "%s/_stcore/health" $cb.ingress.path }}
+              path: {{ printf "%s/_stcore/health" $cb.path }}
               port: 8501
             initialDelaySeconds: 30
             periodSeconds: 30
