@@ -43,7 +43,7 @@ llamacpp:
     - --model
     - /models/model.gguf
     - --alias
-    - llama3.2:1b
+    - llama3.2:3b
     - --host
     - 0.0.0.0
     - --port
@@ -70,6 +70,7 @@ llamacpp:
     - "on"
     - --metrics
     - --mlock
+    - --jinja
     - --cache-reuse
     - "1024"
 
@@ -100,7 +101,7 @@ chatbot:
   config:
     # Must match llamacpp.namespace above: <svc>.<namespace>.svc.cluster.local
     llmEndpoint: http://llamacpp.llamacpp.svc.cluster.local:8080/v1
-    llmModel: llama3.2:1b
+    llmModel: llama3.2:3b
     llmTlsVerify: "false"
     awsRegion: ca-central-1
 

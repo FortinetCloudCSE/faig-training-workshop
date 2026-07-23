@@ -56,9 +56,9 @@ llamacpp:
     - --parallel
     - "2"
     - --threads
-    - "8"
+    - "12"
     - --threads-batch
-    - "8"
+    - "12"
     - --batch-size
     - "1024"
     - --ubatch-size
@@ -74,7 +74,7 @@ llamacpp:
     - --metrics
     - --mlock
     - --cache-reuse
-    - "256"
+    - "512"
 
   resources:
     requests:
