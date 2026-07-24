@@ -48,7 +48,9 @@ if kubectl get namespace metallb-system >/dev/null 2>&1; then
   echo ">> metallb detected — removing it"
   # Removes what THIS script installed (workloads, CRDs -> cascades the
   # metallb.io pool/advertisement custom resources, RBAC, webhooks).
-  kubectl delete -f https://raw.githubusercontent.com/metallb/metallb/v0.14.3/config/manifests/metallb-native.yaml --ignore-not-found
+  # ponytail: || true — a fetch failure (GitHub unreachable) must not abort the
+  # migration before the namespace delete below, which is what frees the node IP.
+  kubectl delete -f https://raw.githubusercontent.com/metallb/metallb/v0.14.3/config/manifests/metallb-native.yaml --ignore-not-found || true
   # ponytail: delete -f is pinned to v0.14.3 (the version we installed). For a
   # FOREIGN install of another version, deleting the namespace still removes its
   # running speaker/controller — which is what actually frees the node IP. Full
@@ -215,21 +217,27 @@ else
   echo ">> REPULL=0 — skipping app container restart"
 fi
 
-# 5. Health gate: with hostNetwork the node IP IS the entrypoint — prove the
-#    controller is actually bound to :80 before declaring success. Any HTTP
-#    status (even 404) proves the bind; a connection refusal does not.
-echo ">> health check: http://${LOCAL_IP}/"
+# 5. Health gate: with hostNetwork the node IP IS the entrypoint. Prove the
+#    controller is bound before declaring success — check :80 (HTTP bind) AND
+#    :443 (every advertised URL is https, so a missing/broken default cert must
+#    fail the lab HERE, not in a student's browser). Any HTTP status (even 404)
+#    proves the listener; a connection refusal does not. -k on https because the
+#    cert is self-signed.
+echo ">> health check: http://${LOCAL_IP}/ and https://${LOCAL_IP}/"
 gate_ok=""
+http_code=""; https_code=""
 for _ in $(seq 1 30); do
-  if curl -sk -o /dev/null -w '%{http_code}' "http://${LOCAL_IP}/" 2>/dev/null | grep -Eq '^[1-5][0-9][0-9]$'; then
+  http_code="$(curl -s  -o /dev/null -w '%{http_code}' "http://${LOCAL_IP}/"  2>/dev/null || true)"
+  https_code="$(curl -sk -o /dev/null -w '%{http_code}' "https://${LOCAL_IP}/" 2>/dev/null || true)"
+  if [[ "$http_code" =~ ^[1-5][0-9][0-9]$ && "$https_code" =~ ^[1-5][0-9][0-9]$ ]]; then
     gate_ok="1"; break
   fi
   sleep 2
 done
 if [[ -z "$gate_ok" ]]; then
-  echo "!! ingress controller is not answering on http://${LOCAL_IP}/ — the lab will not work." >&2
+  echo "!! ingress controller not answering on both http://${LOCAL_IP}/ and https://${LOCAL_IP}/ — the lab will not work." >&2
+  echo "!! last codes: http='${http_code}' https='${https_code}'" >&2
   echo "!! diagnose: kubectl get pods -A -l app.kubernetes.io/component=controller -o wide" >&2
-  echo "!!           kubectl -n ingress-nginx describe pod -l app.kubernetes.io/component=controller" >&2
   exit 1
 fi
 
