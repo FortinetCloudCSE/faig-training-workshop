@@ -5,6 +5,10 @@ global:
   # Fallback tag for any component that doesn't set image.tag.
   imageTag: ""
 
+# Shared by every component's Ingress — they all attach to the same controller.
+ingress:
+  className: nginx
+
 llamacpp:
   enabled: true
   namespace: llamacpp
@@ -14,6 +18,13 @@ llamacpp:
     tag: ""            # falls back to global.imageTag
     pullPolicy: IfNotPresent
   imagePullSecrets: []
+
+  # --mlock in serverArgs below needs IPC_LOCK, or llama-server logs
+  # "failed to mlock" and runs unlocked.
+  securityContext:
+    capabilities:
+      add:
+        - IPC_LOCK
 
   service:
     port: 8080
@@ -134,10 +145,5 @@ landing:
   imagePullSecrets: []
   service:
     port: 80
-    type: LoadBalancer
-  # HTTPS on the landing nginx. Cert lives in a tls-type Secret created by
-  # deploy.sh (self-signed, lab-grade). When enabled the Service also exposes
-  # 443 on the same LoadBalancer IP.
-  tls:
-    enabled: true
-    secretName: landing-tls
+    # Ingress fronts this pod; nothing reaches it directly.
+    type: ClusterIP

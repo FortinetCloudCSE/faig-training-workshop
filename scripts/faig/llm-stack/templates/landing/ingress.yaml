@@ -17,7 +17,7 @@ metadata:
     # future `/` catch-all once it attaches its own Ingress.
     nginx.ingress.kubernetes.io/use-regex: "true"
 spec:
-  ingressClassName: {{ .Values.landing.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
   rules:
     - http:
         paths:

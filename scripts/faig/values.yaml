@@ -12,6 +12,10 @@
 global:
   imageTag: "latest"          # <-- set to your build tag
 
+# Shared by all three Ingresses.
+ingress:
+  className: nginx
+
 llamacpp:
   enabled: true
   namespace: llamacpp
@@ -132,7 +136,5 @@ landing:
   service:
     port: 80
     type: ClusterIP            # was LoadBalancer (MetalLB). Ingress fronts it now.
-  # Path routing and TLS termination now live on the nginx ingress controller
+  # Path routing and TLS termination live on the nginx ingress controller
   # (see deploy.sh + templates/*/ingress.yaml), not on this pod.
-  ingress:
-    className: nginx

@@ -45,7 +45,9 @@ un-annotated namespace.
 |-|-|-|
 | `llamacpp` | `llamacpp` | `/llm` — llama.cpp OpenAI-compatible API |
 | `chatbot` | `chatbot` | `/chat` — Streamlit chatbot UI |
-| `landing` | `landing` | `/` (ingress `defaultBackend`) |
+| `landing` | `landing` | `/` only (anchored regex `^/$`, so it doesn't swallow other paths) |
+
+All three Ingresses attach to `ingress.className` (top-level, shared).
 
 Namespace names, image repos/tags, ingress paths, resources, etc. all come
 from values — `llm-stack/values.yaml` is the full shape; `../values.yaml` is
@@ -54,8 +56,13 @@ the overlay this deployment actually uses.
 ## What deploy.sh owns (not the chart)
 
 - **Namespace creation** — one per enabled component.
-- **ingress-nginx** — installed as an ingress-nginx release only if no `nginx`
-  ingressclass already exists; otherwise reused untouched.
+- **ingress-nginx** — installed (hostNetwork, so the node IP is the entrypoint)
+  if absent; an existing controller is patched to hostNetwork +
+  `--default-ssl-certificate` instead.
+- **`landing-tls`** — self-signed cert in the controller's namespace, serving
+  HTTPS for every path. Created once and reused; the chart does not manage it.
+- **MetalLB removal** — it ARPs the same node IP the hostNetwork controller
+  binds, so deploy.sh deletes it if present.
 - **ACR pull secret** (`acr-pull`) — created in each namespace when `ACR_NAME`
   is set. Skip entirely for public images (also remove the `imagePullSecrets`
   lines from `../values.yaml`).
@@ -94,6 +101,9 @@ shape.
 
 ```
 helm template llm-stack ./llm-stack -f ./values.yaml --set global.imageTag=<tag>
-helm lint ./llm-stack
+helm lint ./llm-stack -f ./values.yaml
 helm diff upgrade llm-stack ./llm-stack -f ./values.yaml   # against a running release
 ```
+
+Pass `-f ./values.yaml`: the chart's own defaults leave `image.tag` empty on
+purpose, and the template `fail`s rather than guess a tag.
