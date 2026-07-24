@@ -1,6 +1,6 @@
 ---
-title: "Getting Started"
-linkTitle: "Getting Started"
+title: "Pre-Flight Checks"
+linkTitle: "Pre-Flight Checks"
 weight: 10
 ---
 
