@@ -2,7 +2,8 @@
 # Teardown for the llm-stack deploy — removes what deploy.sh installed.
 #
 #   ./teardown.sh          remove the app stack (llamacpp, chatbot, landing)
-#   ./teardown.sh --all    ALSO remove ingress-nginx (frees :80/:443) + local-path
+#   ./teardown.sh --all    ALSO remove ingress-nginx (frees :80/:443) + the storage
+#                          stack (nfs-server-provisioner + local-path)
 #   ./teardown.sh -y       skip the confirmation prompt
 #
 # Notes:
@@ -20,6 +21,8 @@ NS_LIST=(llamacpp chatbot landing)
 INGRESS_RELEASE="${INGRESS_RELEASE:-ingress-nginx}"
 INGRESS_NS="${INGRESS_NS:-ingress-nginx}"
 LOCAL_PATH_VERSION="${LOCAL_PATH_VERSION:-v0.0.36}"   # must match what deploy.sh applied
+NFS_RELEASE="${NFS_RELEASE:-nfs-server}"              # must match deploy.sh
+NFS_NS="${NFS_NS:-nfs-server-provisioner}"
 
 ALL=0
 YES=0
@@ -29,7 +32,7 @@ for arg in "$@"; do
     -y|--yes)  YES=1 ;;
     -h|--help)
       echo "usage: $0 [--all] [-y]"
-      echo "  --all   also uninstall ingress-nginx (frees node :80/:443) + local-path"
+      echo "  --all   also uninstall ingress-nginx (frees node :80/:443) + storage"
       echo "  -y      skip the confirmation prompt"
       exit 0 ;;
     *) echo "unknown arg: $arg (try --help)" >&2; exit 2 ;;
@@ -39,7 +42,7 @@ done
 echo ">> will remove helm release '$RELEASE' (ns $RELEASE_NS) + namespaces: ${NS_LIST[*]}"
 if [[ "$ALL" == "1" ]]; then
   echo ">> AND ingress-nginx release '$INGRESS_RELEASE' (ns $INGRESS_NS) — frees node :80/:443"
-  echo ">> AND local-path-provisioner (ns local-path-storage + the local-path StorageClass)"
+  echo ">> AND the storage stack: nfs-server-provisioner (ns $NFS_NS) + local-path-provisioner"
 fi
 
 if [[ "$YES" != "1" ]]; then
@@ -64,6 +67,20 @@ if [[ "$ALL" == "1" ]]; then
   else
     echo ">> ingress release '$INGRESS_RELEASE' not found in $INGRESS_NS — skipping"
   fi
+
+  # NFS provisioner first: it holds a PVC on local-path, so removing local-path
+  # underneath it would strand the volume. helm uninstall drops the StatefulSet and
+  # its StorageClass; the PVC goes with the namespace delete below.
+  if helm status "$NFS_RELEASE" -n "$NFS_NS" >/dev/null 2>&1; then
+    echo ">> helm uninstall $NFS_RELEASE -n $NFS_NS"
+    helm uninstall "$NFS_RELEASE" -n "$NFS_NS"
+  else
+    echo ">> nfs release '$NFS_RELEASE' not found in $NFS_NS — skipping"
+  fi
+  # Delete the namespace HERE, not with the others at the end: it carries the NFS
+  # server's StatefulSet PVC, and releasing that PV needs local-path still running.
+  echo ">> deleting namespace $NFS_NS"
+  kubectl delete namespace "$NFS_NS" --ignore-not-found
 
   # local-path-provisioner: deploy.sh applied it from this pinned manifest, which
   # also carries its namespace, RBAC, ConfigMap, and the local-path StorageClass —

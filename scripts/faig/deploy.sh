@@ -35,12 +35,17 @@ REPULL="${REPULL:-1}"
 # host to get the fail-loudly :80/:443 gate.
 HEALTHCHECK="${HEALTHCHECK:-0}"
 
-# Storage: FortiAIGate (installed separately) needs a valid StorageClass. This
-# single-node cluster has none by default, and FortiAIGate's PVCs are unqualified
-# (no storageClassName), so they need a DEFAULT class to bind. Provision one if
-# absent. Set PROVISION_STORAGE=0 to skip (e.g. a cluster that already has one).
+# Storage: FortiAIGate (installed separately) needs a DEFAULT StorageClass that can
+# serve ReadWriteMany — its PVCs are unqualified (no storageClassName) and RWX.
+# This cluster has no class by default. We install an in-cluster NFS-Ganesha server
+# for RWX, itself backed by local-path (RWO, which hostPath does fine).
+# Set PROVISION_STORAGE=0 to skip and supply your own RWX default class.
 LOCAL_PATH_VERSION="${LOCAL_PATH_VERSION:-v0.0.36}"   # rancher local-path-provisioner pin
 PROVISION_STORAGE="${PROVISION_STORAGE:-1}"
+NFS_RELEASE="${NFS_RELEASE:-nfs-server}"
+NFS_NS="${NFS_NS:-nfs-server-provisioner}"
+NFS_SC_NAME="${NFS_SC_NAME:-nfs}"
+NFS_SIZE="${NFS_SIZE:-100Gi}"
 
 apply() { kubectl apply -f - ; }
 
@@ -169,28 +174,99 @@ patch_ingress_foreign() {
   kubectl -n "$ns" rollout status "$kind/$name" --timeout=180s
 }
 
+# Smoke-test the default StorageClass by actually binding an RWX PVC and mounting
+# it. This is the only honest check: a StorageClass advertises no access modes, so
+# "a default class exists" says nothing about RWX (local-path has a default class
+# and cannot do RWX — that is the exact failure this guards). Also catches nodes
+# missing nfs-common/nfs-utils, where the PVC binds but the mount hangs forever.
+verify_rwx() {
+  local ns="$1" ok=0
+  kubectl -n "$ns" delete pod/rwx-probe pvc/rwx-probe --ignore-not-found >/dev/null 2>&1 || true
+  kubectl -n "$ns" apply -f - >/dev/null <<'EOF'
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: rwx-probe}
+spec:
+  accessModes: [ReadWriteMany]
+  resources: {requests: {storage: 1Mi}}
+---
+apiVersion: v1
+kind: Pod
+metadata: {name: rwx-probe}
+spec:
+  restartPolicy: Never
+  containers:
+    - name: probe
+      image: busybox:1.36
+      command: [sh, -c, "touch /data/ok && sleep 3"]
+      volumeMounts: [{name: d, mountPath: /data}]
+  volumes:
+    - name: d
+      persistentVolumeClaim: {claimName: rwx-probe}
+EOF
+  kubectl -n "$ns" wait --for=condition=Ready pod/rwx-probe --timeout=180s >/dev/null 2>&1 && ok=1
+  [[ "$ok" == "1" ]] || kubectl -n "$ns" describe pod/rwx-probe | tail -20 >&2
+  kubectl -n "$ns" delete pod/rwx-probe pvc/rwx-probe --ignore-not-found >/dev/null 2>&1 || true
+  return $((1 - ok))
+}
+
 reconcile_storage() {
   [[ "$PROVISION_STORAGE" == "0" ]] && { echo ">> PROVISION_STORAGE=0 — skipping storage check"; return 0; }
 
-  # Satisfied iff a DEFAULT StorageClass exists. A non-default class won't bind
-  # FortiAIGate's unqualified PVCs, so it does not count as satisfied.
-  if kubectl get storageclass \
-       -o jsonpath='{range .items[?(@.metadata.annotations.storageclass\.kubernetes\.io/is-default-class=="true")]}{.metadata.name}{"\n"}{end}' \
-     2>/dev/null | grep -q .; then
-    echo ">> default StorageClass present — nothing to provision"
-    return 0
+  # FortiAIGate's PVCs are unqualified (no storageClassName) AND ReadWriteMany, so
+  # the cluster needs a DEFAULT class that can serve RWX. hostPath provisioners
+  # (local-path) cannot: "NodePath only supports ReadWriteOnce and ReadWriteOncePod".
+  local default_sc
+  default_sc="$(kubectl get storageclass \
+    -o jsonpath='{range .items[?(@.metadata.annotations.storageclass\.kubernetes\.io/is-default-class=="true")]}{.metadata.name}{"\n"}{end}' \
+    2>/dev/null | head -1)"
+
+  if [[ -n "$default_sc" && "$default_sc" != "local-path" ]]; then
+    echo ">> default StorageClass '$default_sc' present — verifying it serves RWX"
+    verify_rwx default && { echo ">> '$default_sc' serves RWX — nothing to provision"; return 0; }
+    echo "!! default StorageClass '$default_sc' cannot serve a ReadWriteMany PVC." >&2
+    echo "!! FortiAIGate needs RWX. Remove its default annotation and re-run, or set PROVISION_STORAGE=0" >&2
+    echo "!! and provide an RWX default class yourself." >&2
+    exit 1
   fi
 
-  # No default class — install rancher local-path-provisioner (hostPath-backed
-  # dynamic provisioning; the single-node standard) and mark it default. Fail-loud
-  # (no || true): without storage FortiAIGate cannot work, so an apply failure
-  # must abort the deploy.
-  echo ">> no default StorageClass — installing local-path-provisioner ${LOCAL_PATH_VERSION}"
+  # local-path backs the NFS server's OWN volume (that claim is RWO, which
+  # local-path handles fine). It must NOT be the default class — FortiAIGate would
+  # land on it and fail. Idempotent: apply is a no-op when already present.
+  echo ">> installing local-path-provisioner ${LOCAL_PATH_VERSION} (backing store for the NFS server)"
   kubectl apply -f "https://raw.githubusercontent.com/rancher/local-path-provisioner/${LOCAL_PATH_VERSION}/deploy/local-path-storage.yaml"
   kubectl -n local-path-storage rollout status deploy/local-path-provisioner --timeout=180s
+  # Strip the default annotation an earlier run of this script may have set. Two
+  # default classes is undefined behaviour; local-path as the default is the bug.
   kubectl patch storageclass local-path \
-    -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
-  echo ">> local-path is now the default StorageClass"
+    -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}'
+
+  # NFS-Ganesha runs the server in userspace inside the cluster, so no external NFS
+  # box and no host nfsd. Nodes DO still need an NFS client (nfs-common on Debian/
+  # Ubuntu, nfs-utils on RHEL) for the kubelet to mount the export — verify_rwx
+  # below is what catches its absence.
+  echo ">> installing nfs-server-provisioner (RWX default StorageClass '${NFS_SC_NAME}')"
+  helm repo add nfs-ganesha-server-and-external-provisioner \
+    https://kubernetes-sigs.github.io/nfs-ganesha-server-and-external-provisioner/ >/dev/null 2>&1 || true
+  helm repo update nfs-ganesha-server-and-external-provisioner >/dev/null
+  helm upgrade --install "$NFS_RELEASE" \
+    nfs-ganesha-server-and-external-provisioner/nfs-server-provisioner \
+    --namespace "$NFS_NS" --create-namespace \
+    --set persistence.enabled=true \
+    --set persistence.storageClass=local-path \
+    --set "persistence.size=${NFS_SIZE}" \
+    --set "storageClass.name=${NFS_SC_NAME}" \
+    --set storageClass.defaultClass=true \
+    --wait --timeout 5m
+
+  verify_rwx default || {
+    echo "!! RWX probe failed after installing the NFS provisioner." >&2
+    echo "!! Most likely the nodes lack an NFS client. On each node:" >&2
+    echo "!!   Ubuntu/Debian: sudo apt-get install -y nfs-common" >&2
+    echo "!!   RHEL/Rocky:    sudo dnf install -y nfs-utils" >&2
+    exit 1
+  }
+  echo ">> '${NFS_SC_NAME}' is the default StorageClass and serves RWX"
 }
 
 reconcile_ingress_nginx() {
@@ -214,8 +290,8 @@ reconcile_ingress_nginx() {
   install_ingress_ours
 }
 
-# Ensure a default StorageClass exists before FortiAIGate (installed separately)
-# needs it. No-op when the cluster already has one.
+# Ensure an RWX-capable default StorageClass exists before FortiAIGate (installed
+# separately) needs it. No-op when the cluster already has one that passes the probe.
 reconcile_storage
 
 # Ensure a correctly-exposed nginx ingress controller exists before the workload

@@ -1,5 +1,10 @@
 # Auto-provision a default StorageClass in `deploy.sh`
 
+> **SUPERSEDED** by `2026-07-24-rwx-storage-nfs-design.md`. The design below is
+> wrong: FortiAIGate's PVCs are ReadWriteMany, and local-path (hostPath) cannot
+> serve RWX. Marking `local-path` default makes the detection check pass while
+> the PVC still fails to provision. Kept for the record.
+
 Date: 2026-07-24
 Scope: `scripts/faig/deploy.sh`
 
