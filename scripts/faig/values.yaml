@@ -131,10 +131,8 @@ landing:
     pullPolicy: IfNotPresent
   service:
     port: 80
-    type: LoadBalancer
-  # HTTPS on the landing nginx. deploy.sh generates a self-signed cert (lab-grade,
-  # browsers will warn) into the Secret below and the Service exposes 443 on the
-  # same LoadBalancer IP. Set enabled: false to serve HTTP only.
-  tls:
-    enabled: true
-    secretName: landing-tls
+    type: ClusterIP            # was LoadBalancer (MetalLB). Ingress fronts it now.
+  # Path routing and TLS termination now live on the nginx ingress controller
+  # (see deploy.sh + templates/*/ingress.yaml), not on this pod.
+  ingress:
+    className: nginx
