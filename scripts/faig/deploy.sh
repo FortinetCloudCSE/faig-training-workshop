@@ -139,11 +139,15 @@ patch_ingress_foreign() {
         -o jsonpath='{.spec.template.spec.containers[?(@.name=="controller")].args}' \
         | grep -q -- '--default-ssl-certificate'; then
     echo ">> patching $kind/$name to add --default-ssl-certificate=$ns/landing-tls"
-    local cidx
-    cidx="$(kubectl -n "$ns" get "$kind" "$name" \
+    local cline cidx
+    cline="$(kubectl -n "$ns" get "$kind" "$name" \
       -o jsonpath='{range .spec.template.spec.containers[*]}{.name}{"\n"}{end}' \
-      | grep -nx controller | cut -d: -f1)"
-    cidx=$((cidx - 1))
+      | grep -nx controller | cut -d: -f1 || true)"
+    if [[ -z "$cline" ]]; then
+      echo "!! $kind/$name has no container named 'controller' — cannot add --default-ssl-certificate; aborting to avoid a half-patched controller" >&2
+      exit 1
+    fi
+    cidx=$((cline - 1))
     kubectl -n "$ns" patch "$kind" "$name" --type=json \
       -p "[{\"op\":\"add\",\"path\":\"/spec/template/spec/containers/${cidx}/args/-\",\"value\":\"--default-ssl-certificate=${ns}/landing-tls\"}]"
   fi
