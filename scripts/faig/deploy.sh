@@ -85,22 +85,91 @@ if [[ -n "$ACR_NAME" ]]; then
   done
 fi
 
-# 3b. Self-signed TLS cert for the landing HTTPS listener (lab-grade — browsers
-#     will warn on the self-signed issuer; fine for a workshop). Created ONCE and
-#     reused: regenerating every run would change the Secret and needlessly roll
-#     the nginx pod. SAN covers the LoadBalancer IP (= the node IP).
-if ! kubectl -n landing get secret landing-tls >/dev/null 2>&1; then
-  echo ">> generating self-signed landing TLS cert (SAN=IP:${LOCAL_IP})"
+# Self-signed TLS cert for the ingress HTTPS listener (lab-grade — browsers warn
+# on the self-signed issuer). Created ONCE per namespace and reused: regenerating
+# would roll the controller. SAN covers the node IP (the entrypoint).
+ensure_landing_tls() {
+  local ns="$1"
+  kubectl create namespace "$ns" --dry-run=client -o yaml | apply
+  if kubectl -n "$ns" get secret landing-tls >/dev/null 2>&1; then
+    echo ">> landing-tls already exists in $ns — reusing it"
+    return 0
+  fi
+  echo ">> generating self-signed landing-tls in $ns (SAN=IP:${LOCAL_IP})"
+  local cert_dir
   cert_dir="$(mktemp -d)"
   openssl req -x509 -newkey rsa:2048 -nodes -days 825 \
     -keyout "$cert_dir/tls.key" -out "$cert_dir/tls.crt" \
     -subj "/CN=${LOCAL_IP}" -addext "subjectAltName=IP:${LOCAL_IP}"
-  kubectl -n landing create secret tls landing-tls \
+  kubectl -n "$ns" create secret tls landing-tls \
     --cert="$cert_dir/tls.crt" --key="$cert_dir/tls.key"
   rm -rf "$cert_dir"
-else
-  echo ">> landing TLS secret already exists — reusing it"
-fi
+}
+
+INGRESS_CHART_VERSION="${INGRESS_CHART_VERSION:-4.11.3}"   # ingress-nginx chart pin
+
+install_ingress_ours() {
+  echo ">> installing ingress-nginx (helm, hostNetwork) into ns ingress-nginx"
+  ensure_landing_tls ingress-nginx
+  helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx >/dev/null 2>&1 || true
+  helm repo update ingress-nginx >/dev/null
+  helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+    --namespace ingress-nginx --create-namespace \
+    --version "$INGRESS_CHART_VERSION" \
+    --set controller.hostNetwork=true \
+    --set controller.dnsPolicy=ClusterFirstWithHostNet \
+    --set controller.service.type=ClusterIP \
+    --set controller.extraArgs.default-ssl-certificate=ingress-nginx/landing-tls \
+    --wait --timeout 5m
+}
+
+patch_ingress_foreign() {
+  # $1=kind $2=name $3=namespace of an existing (non-ours) controller workload.
+  local kind="$1" name="$2" ns="$3"
+  echo "!! WARNING: modifying a pre-existing ingress-nginx controller ($kind/$name in $ns)"
+  ensure_landing_tls "$ns"
+  # hostNetwork + dnsPolicy so it binds the node ports.
+  if [[ "$(kubectl -n "$ns" get "$kind" "$name" -o jsonpath='{.spec.template.spec.hostNetwork}')" != "true" ]]; then
+    echo ">> patching $kind/$name to hostNetwork"
+    kubectl -n "$ns" patch "$kind" "$name" --type=merge \
+      -p '{"spec":{"template":{"spec":{"hostNetwork":true,"dnsPolicy":"ClusterFirstWithHostNet"}}}}'
+  fi
+  # Ensure --default-ssl-certificate is on the controller container args.
+  if ! kubectl -n "$ns" get "$kind" "$name" \
+        -o jsonpath='{.spec.template.spec.containers[?(@.name=="controller")].args}' \
+        | grep -q -- '--default-ssl-certificate'; then
+    echo ">> patching $kind/$name to add --default-ssl-certificate=$ns/landing-tls"
+    local cidx
+    cidx="$(kubectl -n "$ns" get "$kind" "$name" \
+      -o jsonpath='{range .spec.template.spec.containers[*]}{.name}{"\n"}{end}' \
+      | grep -nx controller | cut -d: -f1)"
+    cidx=$((cidx - 1))
+    kubectl -n "$ns" patch "$kind" "$name" --type=json \
+      -p "[{\"op\":\"add\",\"path\":\"/spec/template/spec/containers/${cidx}/args/-\",\"value\":\"--default-ssl-certificate=${ns}/landing-tls\"}]"
+  fi
+  kubectl -n "$ns" rollout status "$kind/$name" --timeout=180s
+}
+
+reconcile_ingress_nginx() {
+  # 1. Our own helm release?
+  if helm status ingress-nginx -n ingress-nginx >/dev/null 2>&1; then
+    echo ">> ingress-nginx (our helm release) present — upgrading to reconcile config"
+    install_ingress_ours   # helm upgrade --install is idempotent; repairs drift
+    return 0
+  fi
+  # 2. A foreign controller anywhere?
+  local line
+  line="$(kubectl get deploy,daemonset -A \
+    -l app.kubernetes.io/name=ingress-nginx,app.kubernetes.io/component=controller \
+    -o jsonpath='{.items[0].kind}|{.items[0].metadata.name}|{.items[0].metadata.namespace}' 2>/dev/null || true)"
+  if [[ -n "$line" && "$line" != "||" ]]; then
+    IFS='|' read -r k n ns <<<"$line"
+    patch_ingress_foreign "$k" "$n" "$ns"
+    return 0
+  fi
+  # 3. Nothing installed.
+  install_ingress_ours
+}
 
 # 4. Install / upgrade. Only pass --set for values that were overridden via env.
 SET_ARGS=()
