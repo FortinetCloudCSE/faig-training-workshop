@@ -87,11 +87,25 @@ Call site: a new numbered step immediately before `reconcile_ingress_nginx`.
 - `kubectl apply` and `kubectl patch` are idempotent.
 - Will not create a second default class if a foreign default already exists.
 
+## Teardown
+
+`teardown.sh --all` removes local-path-provisioner, gated behind `--all` like
+the ingress-nginx removal (both are cluster infra a plain teardown leaves
+alone). It runs `kubectl delete -f` on the same pinned manifest deploy.sh
+applied — the manifest carries its own namespace (`local-path-storage`), RBAC,
+ConfigMap, and the `local-path` StorageClass, so one delete sweeps all of it.
+`--ignore-not-found` makes it a no-op when deploy.sh never installed local-path
+(a pre-existing default class was present). `LOCAL_PATH_VERSION` defaults to
+`v0.0.36` to match deploy.sh; resource names are version-stable, so a manifest
+version mismatch still deletes the right objects by name.
+
+Caveat: if FortiAIGate (installed separately) still has bound PVCs, `--all`
+pulls the storage out from under it — same category of consequence as `--all`
+removing the ingress its Ingress depends on.
+
 ## Out of scope
 
 - Validating the health of a pre-existing foreign default StorageClass — a
   default class is trusted to be valid.
 - Static-provisioning (pre-made hostPath PVs) — dynamic provisioning covers the
   requirement with less manual bookkeeping.
-- Removing/teardown of local-path-provisioner (belongs in `teardown.sh` if
-  wanted later).
