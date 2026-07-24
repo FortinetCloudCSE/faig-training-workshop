@@ -175,6 +175,10 @@ reconcile_ingress_nginx() {
   install_ingress_ours
 }
 
+# Ensure a correctly-exposed nginx ingress controller exists before the workload
+# (its Ingress resources need a controller to bind to).
+reconcile_ingress_nginx
+
 # 4. Install / upgrade. Only pass --set for values that were overridden via env.
 SET_ARGS=()
 if [[ -n "$REGISTRY" ]]; then
@@ -211,23 +215,31 @@ else
   echo ">> REPULL=0 — skipping app container restart"
 fi
 
-# 5. Print URLs from the landing LoadBalancer IP.
-echo ">> waiting for landing LoadBalancer IP"
-LB_IP=""
+# 5. Health gate: with hostNetwork the node IP IS the entrypoint — prove the
+#    controller is actually bound to :80 before declaring success. Any HTTP
+#    status (even 404) proves the bind; a connection refusal does not.
+echo ">> health check: http://${LOCAL_IP}/"
+gate_ok=""
 for _ in $(seq 1 30); do
-  LB_IP="$(kubectl -n "${NS_LIST[2]}" get svc landing \
-    -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)"
-  [[ -n "$LB_IP" ]] && break
+  if curl -sk -o /dev/null -w '%{http_code}' "http://${LOCAL_IP}/" 2>/dev/null | grep -Eq '^[1-5][0-9][0-9]$'; then
+    gate_ok="1"; break
+  fi
   sleep 2
 done
-if [[ -z "$LB_IP" ]]; then
-  echo "!! landing Service has no LoadBalancer IP yet — check: kubectl -n ${NS_LIST[2]} get svc landing" >&2
-  LB_IP="<pending>"
+if [[ -z "$gate_ok" ]]; then
+  echo "!! ingress controller is not answering on http://${LOCAL_IP}/ — the lab will not work." >&2
+  echo "!! diagnose: kubectl get pods -A -l app.kubernetes.io/component=controller -o wide" >&2
+  echo "!!           kubectl -n ingress-nginx describe pod -l app.kubernetes.io/component=controller" >&2
+  exit 1
 fi
+
 cat <<EOF
 
->> Deployed. Access:
-   Landing : http://${LB_IP}/
-   Chatbot : http://${LB_IP}/chat/
-   LLM API : http://${LB_IP}/llm/v1/models
+>> Deployed. Access (self-signed TLS — browsers will warn):
+   Landing : https://${LOCAL_IP}/
+   Chatbot : https://${LOCAL_IP}/chat/
+   LLM API : https://${LOCAL_IP}/llm/v1/models
+
+   FortiAIGate (installed separately) attaches its own Ingress for /ui, /v1/...,
+   and the '/' catch-all against IngressClass nginx.
 EOF
