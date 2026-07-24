@@ -253,10 +253,7 @@ fi
 
 cat <<EOF
 
->> Deployed. Access (self-signed TLS — browsers will warn):
-   Landing : https://${LOCAL_IP}/
-   Chatbot : https://${LOCAL_IP}/chat/
-   LLM API : https://${LOCAL_IP}/llm/v1/models
+>> Deployed. 
 
    FortiAIGate (installed separately) attaches its own Ingress for /ui, /v1/...,
    and the '/' catch-all against IngressClass nginx.
