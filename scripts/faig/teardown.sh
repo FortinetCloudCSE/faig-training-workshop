@@ -2,7 +2,7 @@
 # Teardown for the llm-stack deploy — removes what deploy.sh installed.
 #
 #   ./teardown.sh          remove the app stack (llamacpp, chatbot, landing)
-#   ./teardown.sh --all    ALSO remove the ingress-nginx controller (frees :80/:443)
+#   ./teardown.sh --all    ALSO remove ingress-nginx (frees :80/:443) + local-path
 #   ./teardown.sh -y       skip the confirmation prompt
 #
 # Notes:
@@ -19,6 +19,7 @@ RELEASE_NS="${RELEASE_NS:-llamacpp}"        # where deploy.sh installs the relea
 NS_LIST=(llamacpp chatbot landing)
 INGRESS_RELEASE="${INGRESS_RELEASE:-ingress-nginx}"
 INGRESS_NS="${INGRESS_NS:-ingress-nginx}"
+LOCAL_PATH_VERSION="${LOCAL_PATH_VERSION:-v0.0.36}"   # must match what deploy.sh applied
 
 ALL=0
 YES=0
@@ -28,7 +29,7 @@ for arg in "$@"; do
     -y|--yes)  YES=1 ;;
     -h|--help)
       echo "usage: $0 [--all] [-y]"
-      echo "  --all   also uninstall ingress-nginx (frees node :80/:443)"
+      echo "  --all   also uninstall ingress-nginx (frees node :80/:443) + local-path"
       echo "  -y      skip the confirmation prompt"
       exit 0 ;;
     *) echo "unknown arg: $arg (try --help)" >&2; exit 2 ;;
@@ -38,6 +39,7 @@ done
 echo ">> will remove helm release '$RELEASE' (ns $RELEASE_NS) + namespaces: ${NS_LIST[*]}"
 if [[ "$ALL" == "1" ]]; then
   echo ">> AND ingress-nginx release '$INGRESS_RELEASE' (ns $INGRESS_NS) — frees node :80/:443"
+  echo ">> AND local-path-provisioner (ns local-path-storage + the local-path StorageClass)"
 fi
 
 if [[ "$YES" != "1" ]]; then
@@ -62,6 +64,15 @@ if [[ "$ALL" == "1" ]]; then
   else
     echo ">> ingress release '$INGRESS_RELEASE' not found in $INGRESS_NS — skipping"
   fi
+
+  # local-path-provisioner: deploy.sh applied it from this pinned manifest, which
+  # also carries its namespace, RBAC, ConfigMap, and the local-path StorageClass —
+  # one delete -f sweeps all of it. --ignore-not-found makes this a no-op when the
+  # cluster had a pre-existing default class (deploy.sh never installed local-path).
+  # Resource names are version-stable, so a manifest version mismatch still deletes
+  # the right objects by name.
+  echo ">> removing local-path-provisioner ${LOCAL_PATH_VERSION}"
+  kubectl delete -f "https://raw.githubusercontent.com/rancher/local-path-provisioner/${LOCAL_PATH_VERSION}/deploy/local-path-storage.yaml" --ignore-not-found
 fi
 
 # Delete namespaces last — removes leftover secrets and the (now-empty) namespaces.
