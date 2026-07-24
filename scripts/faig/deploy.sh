@@ -29,6 +29,12 @@ ACR_NAME="${ACR_NAME:-}"          # set to auto-create the acr-pull secret from 
 # don't want to pay the llamacpp model reload).
 REPULL="${REPULL:-1}"
 
+# End-of-deploy reachability probe of the node IP. Default OFF: the canonical run
+# is from Azure Cloud Shell, which can't reach the host's node IP, so the probe
+# would false-fail a successful deploy. Set HEALTHCHECK=1 when running on/near the
+# host to get the fail-loudly :80/:443 gate.
+HEALTHCHECK="${HEALTHCHECK:-0}"
+
 apply() { kubectl apply -f - ; }
 
 # LOCAL_IP = the control-plane node's routable IP. Used for the TLS SAN and the
@@ -217,28 +223,32 @@ else
   echo ">> REPULL=0 — skipping app container restart"
 fi
 
-# 5. Health gate: with hostNetwork the node IP IS the entrypoint. Prove the
-#    controller is bound before declaring success — check :80 (HTTP bind) AND
+# 5. Health gate (opt-in): with hostNetwork the node IP IS the entrypoint. Prove
+#    the controller is bound before declaring success — check :80 (HTTP bind) AND
 #    :443 (every advertised URL is https, so a missing/broken default cert must
 #    fail the lab HERE, not in a student's browser). Any HTTP status (even 404)
 #    proves the listener; a connection refusal does not. -k on https because the
-#    cert is self-signed.
-echo ">> health check: http://${LOCAL_IP}/ and https://${LOCAL_IP}/"
-gate_ok=""
-http_code=""; https_code=""
-for _ in $(seq 1 30); do
-  http_code="$(curl -s  -o /dev/null -w '%{http_code}' "http://${LOCAL_IP}/"  2>/dev/null || true)"
-  https_code="$(curl -sk -o /dev/null -w '%{http_code}' "https://${LOCAL_IP}/" 2>/dev/null || true)"
-  if [[ "$http_code" =~ ^[1-5][0-9][0-9]$ && "$https_code" =~ ^[1-5][0-9][0-9]$ ]]; then
-    gate_ok="1"; break
+#    cert is self-signed. Default OFF (HEALTHCHECK): unreachable from Cloud Shell.
+if [[ "$HEALTHCHECK" != "0" ]]; then
+  echo ">> health check: http://${LOCAL_IP}/ and https://${LOCAL_IP}/"
+  gate_ok=""
+  http_code=""; https_code=""
+  for _ in $(seq 1 30); do
+    http_code="$(curl -s  -o /dev/null -w '%{http_code}' "http://${LOCAL_IP}/"  2>/dev/null || true)"
+    https_code="$(curl -sk -o /dev/null -w '%{http_code}' "https://${LOCAL_IP}/" 2>/dev/null || true)"
+    if [[ "$http_code" =~ ^[1-5][0-9][0-9]$ && "$https_code" =~ ^[1-5][0-9][0-9]$ ]]; then
+      gate_ok="1"; break
+    fi
+    sleep 2
+  done
+  if [[ -z "$gate_ok" ]]; then
+    echo "!! ingress controller not answering on both http://${LOCAL_IP}/ and https://${LOCAL_IP}/ — the lab will not work." >&2
+    echo "!! last codes: http='${http_code}' https='${https_code}'" >&2
+    echo "!! diagnose: kubectl get pods -A -l app.kubernetes.io/component=controller -o wide" >&2
+    exit 1
   fi
-  sleep 2
-done
-if [[ -z "$gate_ok" ]]; then
-  echo "!! ingress controller not answering on both http://${LOCAL_IP}/ and https://${LOCAL_IP}/ — the lab will not work." >&2
-  echo "!! last codes: http='${http_code}' https='${https_code}'" >&2
-  echo "!! diagnose: kubectl get pods -A -l app.kubernetes.io/component=controller -o wide" >&2
-  exit 1
+else
+  echo ">> HEALTHCHECK=0 — skipping node-IP reachability probe (set HEALTHCHECK=1 to enable)"
 fi
 
 cat <<EOF
