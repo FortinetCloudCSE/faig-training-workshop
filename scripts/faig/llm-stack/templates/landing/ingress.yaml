@@ -1,0 +1,31 @@
+{{- if .Values.landing.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: landing
+  namespace: {{ .Values.landing.namespace }}
+  labels:
+    {{- include "llm-stack.labels" . | nindent 4 }}
+  annotations:
+    # The sibling llamacpp Ingress uses use-regex+rewrite, which forces this shared
+    # (hostless) server into regex-location mode: an "Exact /" gets compiled to a
+    # plain `location ~* "^/"` that the controller's own default-backend `^/` shadows,
+    # so bare / returned the default-backend 404. Matching the root as an anchored
+    # regex `^/$` makes it (a) truly root-only and (b) longer than `^/`, so
+    # ingress-nginx's length-descending sort orders it AHEAD of the default backend.
+    # Everything else still falls through — to that 404 today, to FortiAIGate's
+    # future `/` catch-all once it attaches its own Ingress.
+    nginx.ingress.kubernetes.io/use-regex: "true"
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  rules:
+    - http:
+        paths:
+          - path: /$
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: landing
+                port:
+                  number: {{ .Values.landing.service.port }}
+{{- end }}

@@ -60,8 +60,10 @@ spec:
           image: {{ include "llm-stack.image" (dict "component" $llama "global" .Values.global) }}
           imagePullPolicy: {{ $llama.image.pullPolicy }}
           args: {{ toJson $llama.serverArgs }}
+          {{- with $llama.securityContext }}
           securityContext:
-            {{- toYaml .Values.llamacpp.securityContext | nindent 12 }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           ports:
             - containerPort: 8080
               name: http

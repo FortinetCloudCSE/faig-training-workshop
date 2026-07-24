@@ -1,7 +1,4 @@
 {{- if .Values.landing.enabled }}
-{{- $l := .Values.landing }}
-{{- $cb := .Values.chatbot }}
-{{- $llm := .Values.llamacpp }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -13,46 +10,13 @@ data:
   default.conf: |
     server {
       listen 80;
-      {{- if $l.tls.enabled }}
-      listen 443 ssl;
-      ssl_certificate     /etc/nginx/tls/tls.crt;
-      ssl_certificate_key /etc/nginx/tls/tls.key;
-      {{- end }}
       server_name _;
 
-      # Static landing page.
+      # Static landing page only. All path routing (/chat, /llm, /ui, catch-all)
+      # is handled by the nginx ingress controller, not this pod.
       location / {
         root /usr/share/nginx/html;
         index index.html;
       }
-
-      {{- if $cb.enabled }}
-      # Chatbot — keep the {{ $cb.path }} prefix (Streamlit baseUrlPath). Websockets.
-      location {{ $cb.path }}/ {
-        proxy_pass http://{{ $cb.name }}.{{ $cb.namespace }}.svc.cluster.local:{{ $cb.service.port }};
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_read_timeout 3600s;
-        proxy_send_timeout 3600s;
-      }
-      {{- end }}
-
-      {{- if $llm.enabled }}
-      # LLM API — strip the {{ $llm.path }} prefix (llama-server expects /v1/...).
-      location {{ $llm.path }}/ {
-        proxy_pass http://llamacpp.{{ $llm.namespace }}.svc.cluster.local:{{ $llm.service.port }}/;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        client_max_body_size 0;
-        proxy_read_timeout 3600s;
-        proxy_send_timeout 3600s;
-      }
-      {{- end }}
     }
 {{- end }}
