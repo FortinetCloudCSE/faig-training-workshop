@@ -65,9 +65,15 @@ FortiAIGate.
 
 ### 1. `deploy.sh`
 
-**Remove** the entire MetalLB block: install, `IPAddressPool`,
+**Remove** the entire MetalLB *install* block: install, `IPAddressPool`,
 `L2Advertisement`, and the webhook-retry loop (current lines ~34–88), plus the
 `LOCAL_IP`-derived MetalLB pool logic used only for MetalLB.
+
+**Add** an active MetalLB *teardown* step (see "MetalLB teardown" below) — a
+cluster that ran the old script already has MetalLB, and leaving it up while
+ingress-nginx claims the same node IP via hostNetwork invites an ARP/L2
+advertisement conflict over that IP. Teardown runs **first**, before the
+ingress-nginx reconcile.
 
 **Keep** `LOCAL_IP` (control-plane node IP) — still needed for the TLS SAN and
 for printing/curl-checking the final URLs.
@@ -93,7 +99,38 @@ LLM API : https://<LOCAL_IP>/llm/v1/models
 `NS_LIST` keeps `landing`/`chatbot`/`llamacpp`; the `ingress-nginx` namespace is
 created by helm (`--create-namespace`).
 
-### 2. Ingress-nginx reconciliation (the "detect / repair" requirement)
+### 2. MetalLB teardown (the "remove if detected" requirement)
+
+Runs before the ingress-nginx reconcile so the node IP is free by the time the
+new controller binds it. Idempotent — a no-op on a cluster that never had
+MetalLB.
+
+Detect by the `metallb-system` namespace (mirrors the old presence check).
+If absent → skip, log `>> metallb not present — nothing to remove`.
+If present → remove:
+
+1. `kubectl delete -f https://raw.githubusercontent.com/metallb/metallb/v0.14.3/config/manifests/metallb-native.yaml --ignore-not-found`
+   — cleanly removes what *this* script installed (workloads, CRDs — which
+   cascade-delete the `IPAddressPool`/`L2Advertisement` CRs — RBAC, and the
+   webhook configurations).
+2. `kubectl delete namespace metallb-system --ignore-not-found --wait=false`
+   — belt-and-suspenders for a **foreign** MetalLB install (installed by other
+   means / a different version) whose workloads the pinned manifest above did
+   not match by name.
+3. `kubectl delete validatingwebhookconfiguration metallb-webhook-configuration --ignore-not-found`
+   — drop any orphaned webhook config (cluster-scoped, survives namespace
+   deletion) so it can't block later `metallb.io` API calls. The name is stable
+   across MetalLB versions.
+
+**Known ceiling (`ponytail:` comment):** the `delete -f` URL is pinned to
+`v0.14.3` (the version this script installed). A foreign install of a *different*
+version has its cluster-scoped CRDs removed only insofar as their names match;
+the namespace delete (step 2) still removes its running speaker/controller, which
+is what actually frees the node IP. Full CRD cleanup of an arbitrary foreign
+version is out of scope — deleting the workloads is sufficient to avoid the L2
+conflict.
+
+### 3. Ingress-nginx reconciliation (the "detect / repair" requirement)
 
 Locate the controller workload (Deployment **or** DaemonSet) cluster-wide by the
 standard labels
@@ -136,7 +173,7 @@ then branch:
   exposure (NodePort/its own LB), the hostNetwork patch can collide; the health
   gate catches this and fails loudly rather than half-fixing.
 
-### 3. `values.yaml` + chart
+### 4. `values.yaml` + chart
 
 - `landing.service.type` → `ClusterIP` (drop `LoadBalancer`).
 - Remove `landing.tls` (the pod no longer terminates TLS).
@@ -186,6 +223,9 @@ and that the `/`, `/chat`, `/llm` routes work.
 ## Verification
 
 - `bash -n deploy.sh` (no shellcheck in this environment).
+- Confirm the MetalLB teardown and ingress reconcile use `--ignore-not-found`
+  / presence guards so a rerun (MetalLB already gone, controller already
+  correct) is a clean no-op under `set -euo pipefail`.
 - `helm template` the chart → confirm the three Ingress resources render with
   correct paths, `pathType`, `ingressClassName`, and annotations; landing
   renders `ClusterIP` with no `443`/TLS.
