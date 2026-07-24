@@ -1,0 +1,27 @@
+{{- if .Values.chatbot.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: chatbot
+  namespace: {{ .Values.chatbot.namespace }}
+  labels:
+    {{- include "llm-stack.labels" . | nindent 4 }}
+  annotations:
+    # Streamlit websockets + long-lived streams. ingress-nginx upgrades
+    # websockets automatically; just raise the read timeout.
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+spec:
+  ingressClassName: {{ .Values.landing.ingress.className }}
+  rules:
+    - http:
+        paths:
+          # Prefix PRESERVED — Streamlit runs with baseUrlPath={{ .Values.chatbot.path }}.
+          - path: {{ .Values.chatbot.path }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.chatbot.name }}
+                port:
+                  number: {{ .Values.chatbot.service.port }}
+{{- end }}

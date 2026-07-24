@@ -1,0 +1,29 @@
+{{- if .Values.llamacpp.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: llamacpp
+  namespace: {{ .Values.llamacpp.namespace }}
+  labels:
+    {{- include "llm-stack.labels" . | nindent 4 }}
+  annotations:
+    # Strip the {{ .Values.llamacpp.path }} prefix — llama-server expects /v1/...
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    # No body cap (matches the old client_max_body_size 0) and long timeouts.
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+spec:
+  ingressClassName: {{ .Values.landing.ingress.className }}
+  rules:
+    - http:
+        paths:
+          - path: {{ .Values.llamacpp.path }}(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: llamacpp
+                port:
+                  number: {{ .Values.llamacpp.service.port }}
+{{- end }}

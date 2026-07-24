@@ -304,8 +304,8 @@ Assert programmatically:
 OUT=$(helm template llm-stack ./llm-stack -f values.yaml)
 echo "$OUT" | grep -q 'pathType: Exact' && echo "PASS exact" || echo "FAIL exact"
 echo "$OUT" | grep -q 'path: /chat' && echo "PASS chat" || echo "FAIL chat"
-echo "$OUT" | grep -q 'path: /llm(/|$)(.*)' && echo "PASS llm-regex" || echo "FAIL llm-regex"
-echo "$OUT" | grep -q 'rewrite-target: /$2' && echo "PASS rewrite" || echo "FAIL rewrite"
+echo "$OUT" | grep -qF 'path: /llm(/|$)(.*)' && echo "PASS llm-regex" || echo "FAIL llm-regex"   # -F: $ is literal, not a BRE anchor
+echo "$OUT" | grep -qF 'rewrite-target: /$2' && echo "PASS rewrite" || echo "FAIL rewrite"
 echo "$OUT" | grep -c 'ingressClassName: nginx'   # expect 3
 echo "$OUT" | grep -c 'kind: Ingress'             # expect 3
 ```
@@ -365,7 +365,7 @@ fi
 if kubectl get namespace metallb-system >/dev/null 2>&1; then
   echo ">> metallb detected — removing it"
   # Removes what THIS script installed (workloads, CRDs -> cascades the
-  # IPAddressPool/L2Advertisement CRs, RBAC, webhooks).
+  # metallb.io pool/advertisement custom resources, RBAC, webhooks).
   kubectl delete -f https://raw.githubusercontent.com/metallb/metallb/v0.14.3/config/manifests/metallb-native.yaml --ignore-not-found
   # ponytail: delete -f is pinned to v0.14.3 (the version we installed). For a
   # FOREIGN install of another version, deleting the namespace still removes its

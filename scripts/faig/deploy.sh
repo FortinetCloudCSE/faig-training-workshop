@@ -31,60 +31,36 @@ REPULL="${REPULL:-1}"
 
 apply() { kubectl apply -f - ; }
 
-# 1. MetalLB — bare-metal LoadBalancer provider. Install only if absent.
-#    This runs BEFORE the workload so type:LoadBalancer Services get an IP.
-if kubectl -n metallb-system rollout status deploy/controller --timeout=1s >/dev/null 2>&1; then
-  echo ">> metallb present — reusing it"
-else
-  echo ">> installing metallb v0.14.3"
-  kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.14.3/config/manifests/metallb-native.yaml
-  kubectl -n metallb-system rollout status deploy/controller --timeout=180s
-  kubectl -n metallb-system rollout status ds/speaker --timeout=180s
-fi
-
-# 1b. Reconcile the IP pool on EVERY run (idempotent), not only on first install.
-#     A redeploy that reuses MetalLB must still repair a missing/stale pool, or a
-#     type:LoadBalancer Service gets stuck <pending> with "no available IPs".
-# ponytail: /32 = exactly one address — the node's own routable IP (Azure L2
-#     won't ARP any other VNet address). Only ONE LoadBalancer Service can bind
-#     it; a second competing LB Service stays pending. That's an infra ceiling,
-#     not fixable here — don't add a second LB Service to this cluster.
+# LOCAL_IP = the control-plane node's routable IP. Used for the TLS SAN and the
+# final URLs. With hostNetwork ingress there is no LoadBalancer IP to wait on —
+# the node IP IS the entrypoint.
 LOCAL_IP="$(kubectl get node -o wide | awk '/control-plane/{print $6; exit}')"
 if [[ -z "$LOCAL_IP" ]]; then
   echo "!! could not determine control-plane node IP" >&2
   exit 1
 fi
-echo ">> metallb pool = ${LOCAL_IP}/32"
-# The validating webhook may not be serving yet right after a fresh controller
-# rollout, so retry the pool apply a few times before giving up.
-pool_applied=""
-for attempt in $(seq 1 10); do
-  if kubectl apply -f - <<EOF
-apiVersion: metallb.io/v1beta1
-kind: IPAddressPool
-metadata:
-  name: first-pool
-  namespace: metallb-system
-spec:
-  addresses:
-    - ${LOCAL_IP}/32
----
-apiVersion: metallb.io/v1beta1
-kind: L2Advertisement
-metadata:
-  name: example
-  namespace: metallb-system
-EOF
-  then
-    pool_applied="1"
-    break
-  fi
-  echo ">> IPAddressPool apply failed (attempt ${attempt}/10) — webhook may not be ready yet, retrying in 5s"
-  sleep 5
-done
-if [[ -z "$pool_applied" ]]; then
-  echo "!! failed to apply MetalLB IPAddressPool/L2Advertisement after 10 attempts" >&2
-  exit 1
+
+# 1. Remove MetalLB if present. It hands out a LoadBalancer IP by ARP-ing the
+#    node's own address; leaving it up while ingress-nginx binds :80/:443 on that
+#    same IP via hostNetwork causes an L2/ARP conflict. Idempotent: a no-op when
+#    MetalLB was never installed.
+if kubectl get namespace metallb-system >/dev/null 2>&1; then
+  echo ">> metallb detected — removing it"
+  # Removes what THIS script installed (workloads, CRDs -> cascades the
+  # metallb.io pool/advertisement custom resources, RBAC, webhooks).
+  # ponytail: || true — a fetch failure (GitHub unreachable) must not abort the
+  # migration before the namespace delete below, which is what frees the node IP.
+  kubectl delete -f https://raw.githubusercontent.com/metallb/metallb/v0.14.3/config/manifests/metallb-native.yaml --ignore-not-found || true
+  # ponytail: delete -f is pinned to v0.14.3 (the version we installed). For a
+  # FOREIGN install of another version, deleting the namespace still removes its
+  # running speaker/controller — which is what actually frees the node IP. Full
+  # CRD cleanup of an arbitrary version is out of scope.
+  kubectl delete namespace metallb-system --ignore-not-found --wait=false
+  # Orphaned cluster-scoped webhook config survives namespace deletion; drop it
+  # so it can't later reject metallb.io API calls. Name is stable across versions.
+  kubectl delete validatingwebhookconfiguration metallb-webhook-configuration --ignore-not-found
+else
+  echo ">> metallb not present — nothing to remove"
 fi
 
 # 2. Namespaces (the chart does not create them).
@@ -111,22 +87,99 @@ if [[ -n "$ACR_NAME" ]]; then
   done
 fi
 
-# 3b. Self-signed TLS cert for the landing HTTPS listener (lab-grade — browsers
-#     will warn on the self-signed issuer; fine for a workshop). Created ONCE and
-#     reused: regenerating every run would change the Secret and needlessly roll
-#     the nginx pod. SAN covers the LoadBalancer IP (= the node IP).
-if ! kubectl -n landing get secret landing-tls >/dev/null 2>&1; then
-  echo ">> generating self-signed landing TLS cert (SAN=IP:${LOCAL_IP})"
+# Self-signed TLS cert for the ingress HTTPS listener (lab-grade — browsers warn
+# on the self-signed issuer). Created ONCE per namespace and reused: regenerating
+# would roll the controller. SAN covers the node IP (the entrypoint).
+ensure_landing_tls() {
+  local ns="$1"
+  kubectl create namespace "$ns" --dry-run=client -o yaml | apply
+  if kubectl -n "$ns" get secret landing-tls >/dev/null 2>&1; then
+    echo ">> landing-tls already exists in $ns — reusing it"
+    return 0
+  fi
+  echo ">> generating self-signed landing-tls in $ns (SAN=IP:${LOCAL_IP})"
+  local cert_dir
   cert_dir="$(mktemp -d)"
   openssl req -x509 -newkey rsa:2048 -nodes -days 825 \
     -keyout "$cert_dir/tls.key" -out "$cert_dir/tls.crt" \
     -subj "/CN=${LOCAL_IP}" -addext "subjectAltName=IP:${LOCAL_IP}"
-  kubectl -n landing create secret tls landing-tls \
+  kubectl -n "$ns" create secret tls landing-tls \
     --cert="$cert_dir/tls.crt" --key="$cert_dir/tls.key"
   rm -rf "$cert_dir"
-else
-  echo ">> landing TLS secret already exists — reusing it"
-fi
+}
+
+INGRESS_CHART_VERSION="${INGRESS_CHART_VERSION:-4.11.3}"   # ingress-nginx chart pin
+
+install_ingress_ours() {
+  echo ">> installing ingress-nginx (helm, hostNetwork) into ns ingress-nginx"
+  ensure_landing_tls ingress-nginx
+  helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx >/dev/null 2>&1 || true
+  helm repo update ingress-nginx >/dev/null
+  helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+    --namespace ingress-nginx --create-namespace \
+    --version "$INGRESS_CHART_VERSION" \
+    --set controller.hostNetwork=true \
+    --set controller.dnsPolicy=ClusterFirstWithHostNet \
+    --set controller.service.type=ClusterIP \
+    --set controller.extraArgs.default-ssl-certificate=ingress-nginx/landing-tls \
+    --wait --timeout 5m
+}
+
+patch_ingress_foreign() {
+  # $1=kind $2=name $3=namespace of an existing (non-ours) controller workload.
+  local kind="$1" name="$2" ns="$3"
+  echo "!! WARNING: modifying a pre-existing ingress-nginx controller ($kind/$name in $ns)"
+  ensure_landing_tls "$ns"
+  # hostNetwork + dnsPolicy so it binds the node ports.
+  if [[ "$(kubectl -n "$ns" get "$kind" "$name" -o jsonpath='{.spec.template.spec.hostNetwork}')" != "true" ]]; then
+    echo ">> patching $kind/$name to hostNetwork"
+    kubectl -n "$ns" patch "$kind" "$name" --type=merge \
+      -p '{"spec":{"template":{"spec":{"hostNetwork":true,"dnsPolicy":"ClusterFirstWithHostNet"}}}}'
+  fi
+  # Ensure --default-ssl-certificate is on the controller container args.
+  if ! kubectl -n "$ns" get "$kind" "$name" \
+        -o jsonpath='{.spec.template.spec.containers[?(@.name=="controller")].args}' \
+        | grep -q -- '--default-ssl-certificate'; then
+    echo ">> patching $kind/$name to add --default-ssl-certificate=$ns/landing-tls"
+    local cline cidx
+    cline="$(kubectl -n "$ns" get "$kind" "$name" \
+      -o jsonpath='{range .spec.template.spec.containers[*]}{.name}{"\n"}{end}' \
+      | grep -nx controller | cut -d: -f1 || true)"
+    if [[ -z "$cline" ]]; then
+      echo "!! $kind/$name has no container named 'controller' — cannot add --default-ssl-certificate; aborting to avoid a half-patched controller" >&2
+      exit 1
+    fi
+    cidx=$((cline - 1))
+    kubectl -n "$ns" patch "$kind" "$name" --type=json \
+      -p "[{\"op\":\"add\",\"path\":\"/spec/template/spec/containers/${cidx}/args/-\",\"value\":\"--default-ssl-certificate=${ns}/landing-tls\"}]"
+  fi
+  kubectl -n "$ns" rollout status "$kind/$name" --timeout=180s
+}
+
+reconcile_ingress_nginx() {
+  # 1. Our own helm release?
+  if helm status ingress-nginx -n ingress-nginx >/dev/null 2>&1; then
+    echo ">> ingress-nginx (our helm release) present — upgrading to reconcile config"
+    install_ingress_ours   # helm upgrade --install is idempotent; repairs drift
+    return 0
+  fi
+  # 2. A foreign controller anywhere?
+  local line
+  line="$(kubectl get deploy,daemonset -A \
+    -l app.kubernetes.io/name=ingress-nginx,app.kubernetes.io/component=controller \
+    -o jsonpath='{.items[0].kind}|{.items[0].metadata.name}|{.items[0].metadata.namespace}' 2>/dev/null || true)"
+  if [[ -n "$line" && "$line" != "||" ]]; then
+    IFS='|' read -r k n ns <<<"$line"
+    patch_ingress_foreign "$k" "$n" "$ns"
+    return 0
+  fi
+  # 3. Nothing installed.
+  install_ingress_ours
+}
+
+# Ensure a correctly-exposed nginx ingress controller exists before the workload
+# (its Ingress resources need a controller to bind to).
+reconcile_ingress_nginx
 
 # 4. Install / upgrade. Only pass --set for values that were overridden via env.
 SET_ARGS=()
@@ -164,23 +217,37 @@ else
   echo ">> REPULL=0 — skipping app container restart"
 fi
 
-# 5. Print URLs from the landing LoadBalancer IP.
-echo ">> waiting for landing LoadBalancer IP"
-LB_IP=""
+# 5. Health gate: with hostNetwork the node IP IS the entrypoint. Prove the
+#    controller is bound before declaring success — check :80 (HTTP bind) AND
+#    :443 (every advertised URL is https, so a missing/broken default cert must
+#    fail the lab HERE, not in a student's browser). Any HTTP status (even 404)
+#    proves the listener; a connection refusal does not. -k on https because the
+#    cert is self-signed.
+echo ">> health check: http://${LOCAL_IP}/ and https://${LOCAL_IP}/"
+gate_ok=""
+http_code=""; https_code=""
 for _ in $(seq 1 30); do
-  LB_IP="$(kubectl -n "${NS_LIST[2]}" get svc landing \
-    -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)"
-  [[ -n "$LB_IP" ]] && break
+  http_code="$(curl -s  -o /dev/null -w '%{http_code}' "http://${LOCAL_IP}/"  2>/dev/null || true)"
+  https_code="$(curl -sk -o /dev/null -w '%{http_code}' "https://${LOCAL_IP}/" 2>/dev/null || true)"
+  if [[ "$http_code" =~ ^[1-5][0-9][0-9]$ && "$https_code" =~ ^[1-5][0-9][0-9]$ ]]; then
+    gate_ok="1"; break
+  fi
   sleep 2
 done
-if [[ -z "$LB_IP" ]]; then
-  echo "!! landing Service has no LoadBalancer IP yet — check: kubectl -n ${NS_LIST[2]} get svc landing" >&2
-  LB_IP="<pending>"
+if [[ -z "$gate_ok" ]]; then
+  echo "!! ingress controller not answering on both http://${LOCAL_IP}/ and https://${LOCAL_IP}/ — the lab will not work." >&2
+  echo "!! last codes: http='${http_code}' https='${https_code}'" >&2
+  echo "!! diagnose: kubectl get pods -A -l app.kubernetes.io/component=controller -o wide" >&2
+  exit 1
 fi
+
 cat <<EOF
 
->> Deployed. Access:
-   Landing : http://${LB_IP}/
-   Chatbot : http://${LB_IP}/chat/
-   LLM API : http://${LB_IP}/llm/v1/models
+>> Deployed. Access (self-signed TLS — browsers will warn):
+   Landing : https://${LOCAL_IP}/
+   Chatbot : https://${LOCAL_IP}/chat/
+   LLM API : https://${LOCAL_IP}/llm/v1/models
+
+   FortiAIGate (installed separately) attaches its own Ingress for /ui, /v1/...,
+   and the '/' catch-all against IngressClass nginx.
 EOF

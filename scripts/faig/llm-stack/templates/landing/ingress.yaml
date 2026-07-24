@@ -1,0 +1,23 @@
+{{- if .Values.landing.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: landing
+  namespace: {{ .Values.landing.namespace }}
+  labels:
+    {{- include "llm-stack.labels" . | nindent 4 }}
+spec:
+  ingressClassName: {{ .Values.landing.ingress.className }}
+  rules:
+    - http:
+        paths:
+          # Exact so this owns ONLY the bare root; FortiAIGate's future
+          # `/` Prefix catch-all takes everything else.
+          - path: /
+            pathType: Exact
+            backend:
+              service:
+                name: landing
+                port:
+                  number: {{ .Values.landing.service.port }}
+{{- end }}
