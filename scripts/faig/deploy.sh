@@ -35,6 +35,13 @@ REPULL="${REPULL:-1}"
 # host to get the fail-loudly :80/:443 gate.
 HEALTHCHECK="${HEALTHCHECK:-0}"
 
+# Storage: FortiAIGate (installed separately) needs a valid StorageClass. This
+# single-node cluster has none by default, and FortiAIGate's PVCs are unqualified
+# (no storageClassName), so they need a DEFAULT class to bind. Provision one if
+# absent. Set PROVISION_STORAGE=0 to skip (e.g. a cluster that already has one).
+LOCAL_PATH_VERSION="${LOCAL_PATH_VERSION:-v0.0.36}"   # rancher local-path-provisioner pin
+PROVISION_STORAGE="${PROVISION_STORAGE:-1}"
+
 apply() { kubectl apply -f - ; }
 
 # LOCAL_IP = the control-plane node's routable IP. Used for the TLS SAN and the
@@ -162,6 +169,30 @@ patch_ingress_foreign() {
   kubectl -n "$ns" rollout status "$kind/$name" --timeout=180s
 }
 
+reconcile_storage() {
+  [[ "$PROVISION_STORAGE" == "0" ]] && { echo ">> PROVISION_STORAGE=0 — skipping storage check"; return 0; }
+
+  # Satisfied iff a DEFAULT StorageClass exists. A non-default class won't bind
+  # FortiAIGate's unqualified PVCs, so it does not count as satisfied.
+  if kubectl get storageclass \
+       -o jsonpath='{range .items[?(@.metadata.annotations.storageclass\.kubernetes\.io/is-default-class=="true")]}{.metadata.name}{"\n"}{end}' \
+     2>/dev/null | grep -q .; then
+    echo ">> default StorageClass present — nothing to provision"
+    return 0
+  fi
+
+  # No default class — install rancher local-path-provisioner (hostPath-backed
+  # dynamic provisioning; the single-node standard) and mark it default. Fail-loud
+  # (no || true): without storage FortiAIGate cannot work, so an apply failure
+  # must abort the deploy.
+  echo ">> no default StorageClass — installing local-path-provisioner ${LOCAL_PATH_VERSION}"
+  kubectl apply -f "https://raw.githubusercontent.com/rancher/local-path-provisioner/${LOCAL_PATH_VERSION}/deploy/local-path-storage.yaml"
+  kubectl -n local-path-storage rollout status deploy/local-path-provisioner --timeout=180s
+  kubectl patch storageclass local-path \
+    -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+  echo ">> local-path is now the default StorageClass"
+}
+
 reconcile_ingress_nginx() {
   # 1. Our own helm release?
   if helm status ingress-nginx -n ingress-nginx >/dev/null 2>&1; then
@@ -182,6 +213,10 @@ reconcile_ingress_nginx() {
   # 3. Nothing installed.
   install_ingress_ours
 }
+
+# Ensure a default StorageClass exists before FortiAIGate (installed separately)
+# needs it. No-op when the cluster already has one.
+reconcile_storage
 
 # Ensure a correctly-exposed nginx ingress controller exists before the workload
 # (its Ingress resources need a controller to bind to).
