@@ -31,60 +31,34 @@ REPULL="${REPULL:-1}"
 
 apply() { kubectl apply -f - ; }
 
-# 1. MetalLB — bare-metal LoadBalancer provider. Install only if absent.
-#    This runs BEFORE the workload so type:LoadBalancer Services get an IP.
-if kubectl -n metallb-system rollout status deploy/controller --timeout=1s >/dev/null 2>&1; then
-  echo ">> metallb present — reusing it"
-else
-  echo ">> installing metallb v0.14.3"
-  kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.14.3/config/manifests/metallb-native.yaml
-  kubectl -n metallb-system rollout status deploy/controller --timeout=180s
-  kubectl -n metallb-system rollout status ds/speaker --timeout=180s
-fi
-
-# 1b. Reconcile the IP pool on EVERY run (idempotent), not only on first install.
-#     A redeploy that reuses MetalLB must still repair a missing/stale pool, or a
-#     type:LoadBalancer Service gets stuck <pending> with "no available IPs".
-# ponytail: /32 = exactly one address — the node's own routable IP (Azure L2
-#     won't ARP any other VNet address). Only ONE LoadBalancer Service can bind
-#     it; a second competing LB Service stays pending. That's an infra ceiling,
-#     not fixable here — don't add a second LB Service to this cluster.
+# LOCAL_IP = the control-plane node's routable IP. Used for the TLS SAN and the
+# final URLs. With hostNetwork ingress there is no LoadBalancer IP to wait on —
+# the node IP IS the entrypoint.
 LOCAL_IP="$(kubectl get node -o wide | awk '/control-plane/{print $6; exit}')"
 if [[ -z "$LOCAL_IP" ]]; then
   echo "!! could not determine control-plane node IP" >&2
   exit 1
 fi
-echo ">> metallb pool = ${LOCAL_IP}/32"
-# The validating webhook may not be serving yet right after a fresh controller
-# rollout, so retry the pool apply a few times before giving up.
-pool_applied=""
-for attempt in $(seq 1 10); do
-  if kubectl apply -f - <<EOF
-apiVersion: metallb.io/v1beta1
-kind: IPAddressPool
-metadata:
-  name: first-pool
-  namespace: metallb-system
-spec:
-  addresses:
-    - ${LOCAL_IP}/32
----
-apiVersion: metallb.io/v1beta1
-kind: L2Advertisement
-metadata:
-  name: example
-  namespace: metallb-system
-EOF
-  then
-    pool_applied="1"
-    break
-  fi
-  echo ">> IPAddressPool apply failed (attempt ${attempt}/10) — webhook may not be ready yet, retrying in 5s"
-  sleep 5
-done
-if [[ -z "$pool_applied" ]]; then
-  echo "!! failed to apply MetalLB IPAddressPool/L2Advertisement after 10 attempts" >&2
-  exit 1
+
+# 1. Remove MetalLB if present. It hands out a LoadBalancer IP by ARP-ing the
+#    node's own address; leaving it up while ingress-nginx binds :80/:443 on that
+#    same IP via hostNetwork causes an L2/ARP conflict. Idempotent: a no-op when
+#    MetalLB was never installed.
+if kubectl get namespace metallb-system >/dev/null 2>&1; then
+  echo ">> metallb detected — removing it"
+  # Removes what THIS script installed (workloads, CRDs -> cascades the
+  # metallb.io pool/advertisement custom resources, RBAC, webhooks).
+  kubectl delete -f https://raw.githubusercontent.com/metallb/metallb/v0.14.3/config/manifests/metallb-native.yaml --ignore-not-found
+  # ponytail: delete -f is pinned to v0.14.3 (the version we installed). For a
+  # FOREIGN install of another version, deleting the namespace still removes its
+  # running speaker/controller — which is what actually frees the node IP. Full
+  # CRD cleanup of an arbitrary version is out of scope.
+  kubectl delete namespace metallb-system --ignore-not-found --wait=false
+  # Orphaned cluster-scoped webhook config survives namespace deletion; drop it
+  # so it can't later reject metallb.io API calls. Name is stable across versions.
+  kubectl delete validatingwebhookconfiguration metallb-webhook-configuration --ignore-not-found
+else
+  echo ">> metallb not present — nothing to remove"
 fi
 
 # 2. Namespaces (the chart does not create them).
