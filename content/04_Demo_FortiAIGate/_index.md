@@ -19,18 +19,16 @@ FortiAIGate uses AI Guards to look at the data as it flows from the client to th
 ### Input Guards
 This is the information that flows from the client application, in our case the chatbot application. These include:
     
-    * Prompt Injection Detection
-    * Data Loss Prevention
-    * Toxicity Filtering
-    * Custom Rule Filters
+* Prompt Injection Detection
+* Data Loss Prevention
+* Toxicity Filtering
+* Custom Rule Filters
 
 ### Output Guards
 This is the information that flows from the LLM to the client application. These include:
 
-    * Data Loss Prevention
-    * Toxicity Filtering
-    * Custom Rule Filters
+* Data Loss Prevention
+* Toxicity Filtering
+* Custom Rule Filters
 
-    {{< notice info >}}Notice that there is no "Prompt Injection Protection" on the output guard. That is because there is no prompt only a response from the LLM.{{< /notice >}}
-
-{{ children }}
+{{< notice info >}}Notice that there is no "Prompt Injection Protection" on the output guard. That is because there is no prompt only a response from the LLM.{{< /notice >}}
