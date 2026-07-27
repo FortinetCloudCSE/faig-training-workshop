@@ -8,10 +8,10 @@ weight: 100
 In the previous sections we worked on getting an environment to run Kubernetes (K8s), installing K8s, and setting up additional containers and pods to build out the resources we will protect in this demo environment. The next step will be to install FortiAIGate itself using the supplied helm charts that come with the FortiAIGate release files. 
 
 ## Background Information
-FortiAIGate is distributed via a collection of container files in tar (TAR Archive) format that must be loaded into a container repository so that they are available for download by K8s when deployed. _We have already completed this step for you_, but a customer might need to setup their own repo server (for example the [Harbor](https://goharbor.io/) repository server) and upload the images there.
+FortiAIGate is distributed via a collection of container files in tar (Tape ARchive) format that must be loaded into a container repository so that they are available for download by K8s when deployed. _We have already completed this step for you_, but a customer might need to setup their own repo server (for example the [Harbor](https://goharbor.io/) repository server) and upload the images there.
 
 ## FortiAIGate Helm Charts
-One of the files included with the FortiAIGate containers is a file that contains the helm chart files that we need to use to deploy FortiAIGate to K8s. We will download this file, extract its contents, ensure we have a valid license file available, and then execute the process to install FortiAIGate.
+One of the files included with the FortiAIGate containers is a file that contains the helm chart files that we need to use to deploy FortiAIGate to K8s. We will download this file, extract its contents, ensure we have a valid license file available, and then execute the process to install FortiAIGate using helm.
 
 1. Start by logging into [Azure Portal](https://portal.azure.com/).
 
@@ -87,7 +87,7 @@ One of the files included with the FortiAIGate containers is a file that contain
 
     ![FortiAIGate Up and Running](<CleanShot 2026-07-24 at 17.06.05.png>)
 
-    All pods are showing "Running" with "1/1" Ready.
+    All pods are showing "Running" with "1/1" Ready. These indicate that each service has started correctly and is running without any issues.
 
 1. If you have any pods running with a different status then you might need to investigate what went wrong.
 
