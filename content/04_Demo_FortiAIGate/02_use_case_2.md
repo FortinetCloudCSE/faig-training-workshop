@@ -43,6 +43,8 @@ Introduced in FortiAIGate 8.0.1 is the ability to inspect MCP (Model Context Pro
 
     ![Initial prompt](<CleanShot 2026-07-27 at 16.20.12.png>)
 
+    We can see our prompt that was passed to the LLM.
+
 1. If we look at the "Output" we can see that the LLM has formatted the request to the "get_pto_balance" tool with the argument "employee_id: EMP-1234" which matches the employee ID we provided in our prompt.
 
     ![MCP tool call from the LLM](<CleanShot 2026-07-27 at 16.22.26.png>)
@@ -55,7 +57,12 @@ Introduced in FortiAIGate 8.0.1 is the ability to inspect MCP (Model Context Pro
 
     ![MCP Response data](<CleanShot 2026-07-27 at 16.26.24.png>)
 
-## MCP Tool Call Details
-While maybe not super exciting, we can see how the FortiAIGate provides additional details and visibility into how MCP servers are interfaced with. We can also see how that information might be malicious and need to be inspected for potential exploits.
+1. Now that we have completed the MCP examples be sure to turn off the MCP Tools. (They add additional overhead that we want to avoid in the subsequent sections.)
 
-Let's move on to the next section.
+    ![Disable MCP](<CleanShot 2026-07-27 at 17.06.55.png>)
+
+### MCP Tool Call Details
+While it may not be super exciting, we can see how the FortiAIGate provides additional details and visibility into how MCP servers are interfaced with. We can also see how that information might be malicious and need to be inspected for potential exploits.
+
+## Continue to the Next Use Case
+Now that we have seen MCP tool calls and logging, let's proceed to the next section.
