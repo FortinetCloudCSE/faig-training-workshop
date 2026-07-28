@@ -16,6 +16,12 @@
     "URL": "https://docs.fortinet.com/document/fortiaigate/8.0.1/fortiaigate-administration-guide/653020/what-s-new-in-fortiaigate-8-0-1",
     "icon": "fa-robot",
     "weight":10
+  },
+  {
+    "text": "FortiAIGate AI Agent Integration",
+    "URL": "https://docs.fortinet.com/document/fortiaigate/8.0.1/fortiaigate-administration-guide/92184/appendix-b-sample-configuration-for-ai-agents",
+    "icon": "fa-terminal",
+    "weight":20
   }
   ]
 }
