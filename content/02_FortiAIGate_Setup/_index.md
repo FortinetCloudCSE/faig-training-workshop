@@ -8,10 +8,10 @@ weight: 100
 In the previous sections we worked on getting an environment to run Kubernetes (K8s), installing K8s, and setting up additional containers and pods to build out the resources we will protect in this demo environment. The next step will be to install FortiAIGate itself using the supplied helm charts that come with the FortiAIGate release files. 
 
 ## Background Information
-FortiAIGate is distributed via a collection of container files in tar (Tape ARchive) format that must be loaded into a container repository so that they are available for download by K8s when deployed. _We have already completed this step for you_, but a customer might need to setup their own repo server (for example the [Harbor](https://goharbor.io/) repository server) and upload the images there.
+FortiAIGate is distributed via a collection of container files in tar (Tape ARchive) format that must be loaded into a container repository so that they are available for download by K8s when deployed. _We have already completed this step for you_, but a customer might need to setup their own repo server (for example the [Harbor](https://goharbor.io/) repository server) and upload the images there. The FortiAIGate `values.yaml` file would need to be updated to reflect that new repo server location.
 
 ## FortiAIGate Helm Charts
-One of the files included with the FortiAIGate containers is a file that contains the helm chart files that we need to use to deploy FortiAIGate to K8s. We will download this file, extract its contents, ensure we have a valid license file available, and then execute the process to install FortiAIGate using helm.
+One of the files included with the FortiAIGate containers is a file that contains the helm chart files that we need to use to deploy FortiAIGate to K8s. We will download this file from blob storage in Azure, extract its contents, ensure we have a valid license file available, and then execute the process to install FortiAIGate using helm.
 
 1. Start by logging into [Azure Portal](https://portal.azure.com/).
 
@@ -29,12 +29,18 @@ One of the files included with the FortiAIGate containers is a file that contain
 
     If this downloads correctly you should see the file listed in your home directory.
 
+    ```
+    ls -lash FAIG_helm_chart-V8.0.1-build0031-FORTINET.tar values.yaml
+    ```
+
 1. Next, let's extract the files from the tar file:
 
     ```
     cd $HOME
     tar xvf FAIG_helm_chart-V8.0.1-build0031-FORTINET.tar
     ```
+
+    ![XKCD is always relevant](image.png)
 
 1. We will copy over your license file so that it is in the correct folder:
 
