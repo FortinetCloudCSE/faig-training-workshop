@@ -89,6 +89,8 @@ One of the files included with the FortiAIGate containers is a file that contain
     watch kubectl get pods -n fortiaigate
     ```
 
+    {{% notice style="info" title="Pod Status" %}}It might take a few minutes for the cluster to come online fully. Seeing pods crash or loop during startup is not unexpected. There are dependencies between the pods, but some pods might not start cleanly and take a few attempts before they start correctly. Just be patient and watch for your pod status to match that of the screenshot below.{{% /notice %}}
+
     You are looking for the pods to end up looking something like this:
 
     ![FortiAIGate Up and Running](<CleanShot 2026-07-24 at 17.06.05.png>)

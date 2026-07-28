@@ -37,7 +37,7 @@ Introduced in FortiAIGate 8.0.1 is the ability to inspect MCP (Model Context Pro
 
     ![MCP tool logs](<CleanShot 2026-07-27 at 16.18.42.png>)
 
-    {{< notice info >}}Why two log entries? Well the first request provides the prompt to the LLM with the tools availability. The LLM then determines that the tool call will provide it in the information required and asks the client to execute it. The client returns the tools results and the LLM formats that information into a readable response. We will see this more in depth in the following steps.{{< /notice >}}
+    {{< notice info >}}Why two log entries? Well the first request provides the prompt to the LLM with the tools availability. The LLM then determines that the tool call will provide it the information required and asks the client to execute it. The client returns the tool's results and the LLM formats that information into a readable response. We will see this more in depth in the following steps.{{< /notice >}}
 
 1. Click on the second entry down. This should be the log entry for the initial prompt. If we scroll to the bottom we can see slightly different output than we have seen previously:
 
@@ -53,16 +53,16 @@ Introduced in FortiAIGate 8.0.1 is the ability to inspect MCP (Model Context Pro
 
     ![MCP tool input](<CleanShot 2026-07-27 at 16.23.32.png>)
 
-1. If we switch to the other (the latest) log entry we can see that the input has changed to that of the MCP tool call and that this is sent to the LLM.
+1. If we switch to the other (the latest) log entry we can see that the input has changed to that of the MCP tool call's output and that this is sent to the LLM.
 
     ![MCP Response data](<CleanShot 2026-07-27 at 16.26.24.png>)
 
-1. Now that we have completed the MCP examples be sure to turn off the MCP Tools. (They add additional overhead that we want to avoid in the subsequent sections.)
+1. Now that we have completed the MCP examples be sure to turn off the MCP Tools. (They add additional context overhead that we want to avoid in the subsequent sections.)
 
     ![Disable MCP](<CleanShot 2026-07-27 at 17.06.55.png>)
 
 ### MCP Tool Call Details
-While it may not be super exciting, we can see how the FortiAIGate provides additional details and visibility into how MCP servers are interfaced with. We can also see how that information might be malicious and need to be inspected for potential exploits.
+While it may not be super exciting, we can see how the FortiAIGate provides additional details and visibility into how MCP servers are interacted with. We can also see how that information might be malicious and need to be inspected for potential exploits.
 
 ## Continue to the Next Use Case
 Now that we have seen MCP tool calls and logging, let's proceed to the next section.
