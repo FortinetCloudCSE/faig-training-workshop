@@ -22,7 +22,7 @@ The next steps we will configure the the AI Chatbot to talk to FortiAIGate inste
 
     ![Chatbot tab](<CleanShot 2026-07-27 at 12.19.38.png>)
 
-1. Click on the field named "API Key" and paste in the API key your copied from the FortiAIGate. This API key will be included in every request that is sent to the FortiAIGate. This is used to ensure that the FortiAIGate is not accessed without permission or authorization.
+1. Click on the field named "API Key" and paste in the API key you copied from the FortiAIGate. This API key will be included in every request that is sent to the FortiAIGate. This is used to ensure that the FortiAIGate is not accessed without permission or authorization.
 
 1. Back in the Azure Portal, use the Cloud Console to run the following command:
 
@@ -32,7 +32,7 @@ The next steps we will configure the the AI Chatbot to talk to FortiAIGate inste
 
     Copy the URL generated and use it in the next step.
 
-    {{< notice info >}}Each student's environment has a unique number assigned. We use this process to ensure we have the correct endpoint URL to access the FortiAIGate. We are also using http here instead of https to avoid any issues with unsigned certificates. In a production environment you would use HTTPS.{{< /notice >}}
+    {{< notice info >}}Each student's environment has a unique number assigned. We use this process to ensure we have the correct endpoint URL to access the FortiAIGate. We are also using http here instead of HTTPS to avoid any issues with unsigned certificates. In a production environment you would use HTTPS.{{< /notice >}}
 
 
 1. Click on the field named "LLM Endpoint" and enter the URL generated in the pervious step:
