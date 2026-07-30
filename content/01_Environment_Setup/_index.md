@@ -82,18 +82,17 @@ Let's confirm that the environment is setup correctly and has everything we need
     We install Calico as part of our K8s deployment in the previous steps, but if you were deploying this on a customer's K8s environment you would want to make sure they have an operational CNI.
 
 ### What about Storage
-FortiAIGate also requires NFS storage to be setup in K8s — its PVCs ask for
-`ReadWriteMany`, which a plain hostPath provisioner cannot serve. `deploy.sh`
-handles this: it installs an in-cluster NFS server and makes its `nfs` class the
-default.
+FortiAIGate requires shared storage for Kubernetes Persistent Volume Claims (PVCs). These PVCs require the `ReadWriteMany` (RWX) access mode, which a standard hostPath provisioner cannot provide.
 
-To confirm, check that `nfs` is marked `(default)`:
+In the next chapter, you will run the `deploy.sh` script, which automatically deploys an in-cluster NFS server, creates an NFS StorageClass, and configures it as the cluster's default storage class.
 
-`kubectl get storageclass`
+Each Kubernetes node must also have an NFS client installed so the kubelet can mount the shared volumes (`nfs-common` on Ubuntu or `nfs-util` on RHEL). The `deploy.sh` script validates this requirement by creating a test RWX volume and will notify you if any prerequisites are missing.
 
-Each node also needs an NFS *client* for the kubelet to mount the export
-(`nfs-common` on Ubuntu, `nfs-utils` on RHEL). `deploy.sh` tests this by binding
-a real RWX volume and tells you if it is missing.
+After completing the deployment in the next chapter, you can verify that the NFS StorageClass is configured as the default by running:
+
+```bash
+kubectl get storageclass
+```
 
 ## All Set?
 If you have passed all of these checks then you are ready to progress to the next section.

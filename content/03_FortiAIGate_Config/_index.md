@@ -36,7 +36,7 @@ We will need to access the FortiAIGate to make some initial changes and grab som
     * Login: `admin`
     * Password: "" _blank_
 
-1. You will be presented with a form to enter a new passsword:
+1. You will be presented with a form to enter a new password:
 
     ![New Password Dialog](<CleanShot 2026-07-27 at 11.17.08.png>)
 
