@@ -60,7 +60,9 @@ Let's confirm that the environment is setup correctly and has everything we need
 
     The output should look something similar to (build and actual versions may differ depending on updates):
 
-    `version.BuildInfo{Version:"v4.1", GitCommit:"c94d381b03be117e7e57908edbf642104e00eb8f", GitTreeState:"clean", GoVersion:"go1.26.4", KubeClientVersion:"v1.35"}`
+    ```
+    version.BuildInfo{Version:"v4.1", GitCommit:"c94d381b03be117e7e57908edbf642104e00eb8f", GitTreeState:"clean", GoVersion:"go1.26.4", KubeClientVersion:"v1.35"}
+    ```
 
 1. Make sure we have a CNI (Container Network Interface - how containers talk to each other in K8s) installed:
 

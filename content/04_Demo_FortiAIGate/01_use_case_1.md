@@ -38,6 +38,7 @@ weight: 310
     ![Edit AI Guard](<CleanShot 2026-07-27 at 15.40.23.png>)
 
 1. Click on "Input Guard", then "Prompt Injection Detection". 
+
     * Toggle "Enable" 
     * Select "Alert and Deny"
 
@@ -51,7 +52,7 @@ weight: 310
 
     ![Blocked System prompt](<CleanShot 2026-07-27 at 15.42.38.png>)
 
-    {{< notice info >}}The Chat app should display the following blocked response: "This request was blocked by FortiAIGate as it triggered our safety systems." The input field will be highlighted in red, indicating that the request was intercepted and denied by FortiAIGate before reaching the underlying LLM model. Also note how quickly the response came back. This shows the request was blocked before it was ever sent to the LLM.{{< /notice >}}
+    {{< notice info >}}The Chat app should display the following blocked response: "This request was blocked by FortiAIGate as it triggered our safety systems." This indicates that the request was intercepted and denied by FortiAIGate before reaching the underlying LLM model. Also note how quickly the response came back. This shows the request was blocked before it was ever sent to the LLM.{{< /notice >}}
 
 1. Try the other prompt again:
 

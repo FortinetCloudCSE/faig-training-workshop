@@ -68,11 +68,11 @@ Run the following commands to download the helm charts to install and setup the 
 
     ![Worker Node Link](<CleanShot 2026-07-24 at 12.45.52.png>)
 
-1. You should be able to click on the link output in the Cloud Console and it will open up in a new tab. It should look something like this:
+1. You should be able to click on the link output directly in the Cloud Console and it will open up in a new tab in your browser. It should look something like this:
 
     ![Landing Page App](<CleanShot 2026-07-24 at 12.47.02.png>)
 
-1. In the Chatbot window down towards the bottom you will see "Say something...". Type in `Hello` and hit enter. This will verify that the Chatbot can communicate with the LLM correctly.
+1. In the Chatbot window down at the bottom you will see "Say something...". Type in `Hello` and hit enter. This will verify that the Chatbot can communicate with the LLM correctly.
 
     ![AI Chatbot Test](<CleanShot 2026-07-24 at 12.50.06.png>)
 

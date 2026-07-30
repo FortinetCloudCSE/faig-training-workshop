@@ -33,7 +33,7 @@ This is the information that flows from the LLM to the client application. These
 * Toxicity Filtering
 * Custom Rule Filters
 
-{{< notice info >}}Notice that there is no "Prompt Injection Protection" on the output guard. That is because there is no prompt only a response from the LLM.{{< /notice >}}
+{{< notice info >}}Notice that there is no "Prompt Injection Protection" on the output guard. Input guards are designed to protect the LLM.{{< /notice >}}
 
 ## Let's Get Started with our Use Cases
 Let's get started!
