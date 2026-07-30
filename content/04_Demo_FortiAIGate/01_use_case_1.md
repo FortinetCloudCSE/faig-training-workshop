@@ -89,3 +89,7 @@ Now that we have sent some prompts through FortiAIGate let's check the logs to s
 
 ## Continue to the Next Use Case
 Now that we have seen prompt injection protection, let's proceed to the next section.
+
+{{% notice style="green" icon="hand-point-right" title="Continue on to the next page." %}}
+Continue to the [Use Case 2]({{< relref "02_use_case_2" >}}).
+{{% /notice %}}

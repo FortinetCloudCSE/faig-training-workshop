@@ -34,3 +34,10 @@ This is the information that flows from the LLM to the client application. These
 * Custom Rule Filters
 
 {{< notice info >}}Notice that there is no "Prompt Injection Protection" on the output guard. That is because there is no prompt only a response from the LLM.{{< /notice >}}
+
+## Let's Get Started with our Use Cases
+Let's get started!
+
+{{% notice style="green" icon="hand-point-right" title="Continue on to the next page." %}}
+Continue to the [Use Case 1]({{< relref "01_use_case_1" >}}).
+{{% /notice %}}

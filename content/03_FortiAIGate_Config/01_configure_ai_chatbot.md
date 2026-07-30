@@ -47,3 +47,7 @@ The next steps we will configure the the AI Chatbot to talk to FortiAIGate inste
 
 ## Let's Get Started with FortiAIGate
 We now have a fully operational "AI stack" to start testing FortiAIGate. Let's get started!
+
+{{% notice style="green" icon="hand-point-right" title="Continue on to the next page." %}}
+Continue to the [Demoing FortiAIGate]({{< relref "04_Demo_FortiAIGate" >}}).
+{{% /notice %}}

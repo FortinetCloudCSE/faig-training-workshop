@@ -68,3 +68,7 @@ While it may not be super exciting, we can see how the FortiAIGate provides addi
 
 ## Continue to the Next Use Case
 Now that we have seen MCP tool calls and logging, let's proceed to the next section.
+
+{{% notice style="green" icon="hand-point-right" title="Continue on to the next page." %}}
+Continue to the [Use Case 3]({{< relref "03_use_case_3" >}}).
+{{% /notice %}}

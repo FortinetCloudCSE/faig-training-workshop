@@ -125,3 +125,7 @@ One of the files included with the FortiAIGate containers is a file that contain
 
 ## Good to Go?
 If you can access the FortiAIGate WebUI and see the login screen, you are good to go! Proceed to the next section to start the demo.
+
+{{% notice style="green" icon="hand-point-right" title="Continue on to the next page." %}}
+Continue to the [FortiAIGate Configuration]({{< relref "03_FortiAIGate_Config" >}}).
+{{% /notice %}}

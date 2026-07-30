@@ -81,3 +81,7 @@ The last use case within this section covers using the "Intelligent Routing" fun
 
 ## Continue to the Next Use Case
 Now that we have seen how Intelligent Routing works in the FortiAIGate, let's proceed to the next section.
+
+{{% notice style="green" icon="hand-point-right" title="Continue on to the next page." %}}
+Continue to the [Use Case 7]({{< relref "07_use_case_7" >}}).
+{{% /notice %}}

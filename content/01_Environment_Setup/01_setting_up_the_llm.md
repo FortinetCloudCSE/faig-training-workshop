@@ -80,3 +80,7 @@ Run the following commands to download the helm charts to install and setup the 
 
 ## Ready to Go
 We now have a working demo environment with an LLM model and a chatbot that can talk to it. In the next section we will start installing and configuring FortiAIGate so that we can properly demo the application.
+
+{{% notice style="green" icon="hand-point-right" title="Continue on to the next page." %}}
+Continue to the [Setting up FortiAIGate]({{< relref "02_FortiAIGate_Setup" >}}).
+{{% /notice %}}

@@ -82,3 +82,7 @@ Let's create some custom rules to help us track who accessed salary based inform
 
 ## Continue to the Next Use Case
 Now that we have seen how customers can add a custom detection rule to the FortiAIGate, let's proceed to the next section.
+
+{{% notice style="green" icon="hand-point-right" title="Continue on to the next page." %}}
+Continue to the [Use Case 6]({{< relref "06_use_case_6" >}}).
+{{% /notice %}}

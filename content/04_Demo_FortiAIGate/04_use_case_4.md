@@ -132,3 +132,7 @@ Toxicity filtering is bidirectional: the Input Guard blocks toxic prompts before
 
 ## Continue to the Next Use Case
 Now that we have seen toxicity detection, let's proceed to the next section.
+
+{{% notice style="green" icon="hand-point-right" title="Continue on to the next page." %}}
+Continue to the [Use Case 5]({{< relref "05_use_case_5" >}}).
+{{% /notice %}}

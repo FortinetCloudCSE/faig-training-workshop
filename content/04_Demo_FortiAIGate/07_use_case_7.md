@@ -42,3 +42,7 @@ It is probably best to touch on it when you first load the FortiAIGate, and then
 That is all the information that is currently available on the FortiAIGate dashboard. This concludes this section of the lab. Congrats!
 
 ![Congrats](Leonardo-DiCaprio-Gatsby-Toast-Smile.gif)
+
+{{% notice style="red" icon="stop" title="All done!" %}}
+You have completed the current demo.
+{{% /notice %}}

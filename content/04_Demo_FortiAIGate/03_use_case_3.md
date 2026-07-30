@@ -213,3 +213,7 @@ When Redact is configured on the Input Guard, FortiAIGate will add a preamble to
 
 ## Continue to the Next Use Case
 Now that we have seen DLP detection and masking/redaction, let's proceed to the next section.
+
+{{% notice style="green" icon="hand-point-right" title="Continue on to the next page." %}}
+Continue to the [Use Case 4]({{< relref "04_use_case_4" >}}).
+{{% /notice %}}

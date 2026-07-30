@@ -91,3 +91,7 @@ We will need to access the FortiAIGate to make some initial changes and grab som
 
 ## FortiAIGate is Ready to Go
 Okay. We have completed the setup of the FortiAIGate, let's move on to the AI Chatbot application. Thankfully it is a little easier.
+
+{{% notice style="green" icon="hand-point-right" title="Continue on to the next page." %}}
+Continue to the [Configuring the AI Chatbot]({{< relref "01_configure_ai_chatbot" >}}).
+{{% /notice %}}
