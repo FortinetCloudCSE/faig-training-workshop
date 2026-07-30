@@ -101,7 +101,7 @@ In order to enforce Data Leak Prevention controls on AI traffic, a DLP profile m
 
     This request takes a little more time to respond. That's because FortiAIGate allowed it to pass through the Input Guard DLP check and had to be processed by the LLM. Only once the response was complete did the Output Guard DLP detect the protected data and blocked the request.
 
-1. Let's look at the FortiAIGate's logs for this request: Logs > Log Reports. CLick on the latest log.
+1. Let's look at the FortiAIGate's logs for this request: Logs > Log Reports. Click on the latest log.
 
     ![Blocked DLP](<CleanShot 2026-07-27 at 17.52.01.png>)
 

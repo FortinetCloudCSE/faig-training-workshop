@@ -35,7 +35,7 @@ The next steps we will configure the the AI Chatbot to talk to FortiAIGate inste
     {{< notice info >}}Each student's environment has a unique number assigned. We use this process to ensure we have the correct endpoint URL to access the FortiAIGate. We are also using http here instead of HTTPS to avoid any issues with unsigned certificates. In a production environment you would use HTTPS.{{< /notice >}}
 
 
-1. Click on the field named "LLM Endpoint" and enter the URL generated in the pervious step:
+1. Click on the field named "LLM Endpoint" and enter the URL generated in the previous step:
 
     ![AI Chatbot Configuration](<CleanShot 2026-07-27 at 12.29.37.png>)
 
