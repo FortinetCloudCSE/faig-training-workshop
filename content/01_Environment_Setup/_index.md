@@ -96,3 +96,7 @@ kubectl get storageclass
 
 ## All Set?
 If you have passed all of these checks then you are ready to progress to the next section.
+
+{{% notice style="green" icon="hand-point-right" title="Continue on to the next page." %}}
+Continue to the [Setting up the LLM]({{< relref "01_setting_up_the_llm" >}}).
+{{% /notice %}}
