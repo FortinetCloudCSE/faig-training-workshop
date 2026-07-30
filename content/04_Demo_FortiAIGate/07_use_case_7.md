@@ -20,7 +20,7 @@ It is probably best to touch on it when you first load the FortiAIGate, and then
 
     ![chart details](<CleanShot 2026-07-28 at 14.27.22.png>)
 
-1. In the top left corner click on "Filter".
+1. In the top right corner click on "Filter".
 
     ![filter](<CleanShot 2026-07-28 at 14.29.12.png>)
 
