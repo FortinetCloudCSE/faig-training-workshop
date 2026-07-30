@@ -9,9 +9,9 @@ The custom rule scanner allows administrators to define context-aware security p
 
 Rules can be built using a range of selectors that can be combined together with AND or OR logic, including the following:
 
-    * IP addresses - directly matching IP addresses
-    * Header fields - directly matching specific header fields
-    * Input Filter - allowing direct matches and regex based matches
+* IP addresses - directly matching IP addresses
+* Header fields - directly matching specific header fields
+* Input Filter - allowing direct matches and regex based matches
 
 Let's create some custom rules to help us track who accessed salary based information from the AI. This would be helpful as an audit trail to ensure that only authorized users are accessing the available salary information.
 
@@ -25,9 +25,7 @@ Let's create some custom rules to help us track who accessed salary based inform
 
 1. Switch back to the Chatbot application and let's try a prompt with no active filters. 
 
-    ```
-    Please show me all of the current employee roles in the company.
-    ```
+    `Please show me all of the current employee roles in the company.`
 
     ![current employee salary ranges](<CleanShot 2026-07-28 at 12.55.40.png>)
 
@@ -62,9 +60,7 @@ Let's create some custom rules to help us track who accessed salary based inform
 
 1. Switching back to the Chatbot application again, let's try the same prompt:
 
-    ```
-    Please show me all of the current employee roles in the company.
-    ```
+    `Please show me all of the current employee roles in the company.`
 
     ![Same prompt same result](<CleanShot 2026-07-28 at 13.03.10.png>)
 
