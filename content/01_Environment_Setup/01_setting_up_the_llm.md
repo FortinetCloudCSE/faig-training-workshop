@@ -60,13 +60,15 @@ Run the following commands to download the helm charts to install and setup the 
 
 1. Let's verify that everything is working correctly. Use the following command to generate a link to your worker node:
 
-    `echo https://$(whoami)-worker.eastus.cloudapp.azure.com`
+    ```
+    echo https://$(whoami)-worker.eastus.cloudapp.azure.com
+    ```
 
     The output should look something like this:
 
     ![Worker Node Link](<CleanShot 2026-07-24 at 12.45.52.png>)
 
-1. You should be able to click on the link in the browser and it will open up in a new tab. It should look something like this:
+1. You should be able to click on the link output in the Cloud Console and it will open up in a new tab. It should look something like this:
 
     ![Landing Page App](<CleanShot 2026-07-24 at 12.47.02.png>)
 

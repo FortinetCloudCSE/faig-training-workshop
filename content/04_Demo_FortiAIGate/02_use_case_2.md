@@ -31,6 +31,8 @@ Introduced in FortiAIGate 8.0.1 is the ability to inspect MCP (Model Context Pro
 
     ![MCP response](<CleanShot 2026-07-27 at 16.16.26.png>)
 
+    {{< notice warning >}}There is a chance that the LLM will ignore the output from the MCP server and respond that it doesn't know what the PTO balance is. It is safe to continue as the system still makes the MCP server calls that we see in the logs. Please just continue with the lab if your output doesn't match. LLMs can be tricky to keep consistent in their responses, especially lower parameter models.{{< /notice >}}
+
 1. Now that we have our response let's return back to the FortiAIGate Log view and see what additional information is there. In the FortiAIGate navigate in the left menu select: Logs > Log Reports.
 
 1. In the log list you should see two new log entries.
