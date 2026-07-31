@@ -42,11 +42,21 @@ One of the files included with the FortiAIGate containers is a file that contain
 
     ![XKCD is always relevant](image.png)
 
+1. In the email confirmation you received for this class should be a valid FortiAIGate license. Download that license and save it locally.
+
+1. Using the Azure Cloud Console click on "Manage files" and then select "Upload".
+
+    ![manage files and upload](<CleanShot 2026-07-31 at 11.32.15.png>)
+
+1. Select the local FortiAIGate license file and upload it to the Cloud Console's home directory. You should see a notification in the bottom right that it was uploaded successfully.
+
+    ![successful upload](<CleanShot 2026-07-31 at 11.35.51@2x.png>)
+
 1. We will copy over your license file so that it is in the correct folder:
 
     ```
     cd $HOME
-    cp license.lic fortiaigate/files/licenses/
+    cp *.lic fortiaigate/files/licenses/license.lic
     ```
 
 1. Let's create a K8s namespace that will contain FortiAIGate. Run the following:
