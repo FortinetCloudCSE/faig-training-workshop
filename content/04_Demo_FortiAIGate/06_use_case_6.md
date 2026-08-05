@@ -35,7 +35,7 @@ The last use case within this section covers using the "Intelligent Routing" fun
 
     * Name: `Intelligent Routing Example`
     * Path: `/v1/ir/*`
-    * Schema: `/v1/chat/competitions`
+    * Schema: `/v1/chat/completions`
     * Type: select "Intelligent Routing"
 
     ![Intelligent Routing Setup](<CleanShot 2026-07-28 at 13.24.45.png>)
