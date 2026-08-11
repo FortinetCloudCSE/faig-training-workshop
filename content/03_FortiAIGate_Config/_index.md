@@ -18,7 +18,7 @@ We will need to access the FortiAIGate to make some initial changes and grab som
 1. Run the following command so that we generate the URL to access the landing page.
 
     ```
-    echo https://$(whoami)-worker.eastus.cloudapp.azure.com
+    echo https://$(whoami)-worker.$(az group show -n "$(whoami)-k8s101-workshop" --query location -o tsv).cloudapp.azure.com
     ```
 
     This will generate a URL for you to click on that will open in a new tab.

@@ -118,7 +118,7 @@ One of the files included with the FortiAIGate containers is a file that contain
 1. Once you have FortiAIGate up and running run the following command in Cloud Console and then click on the link it generates:
 
     ```
-    echo https://$(whoami)-worker.eastus.cloudapp.azure.com
+    echo https://$(whoami)-worker.$(az group show -n "$(whoami)-k8s101-workshop" --query location -o tsv).cloudapp.azure.com
     ```
 
 1. You will be taken to the demo landing page. Click on FortiAIGate in the top menu:

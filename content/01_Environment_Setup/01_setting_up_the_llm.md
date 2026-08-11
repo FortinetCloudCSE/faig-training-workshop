@@ -61,7 +61,7 @@ Run the following commands to download the helm charts to install and setup the 
 1. Let's verify that everything is working correctly. Use the following command to generate a link to your worker node:
 
     ```
-    echo https://$(whoami)-worker.eastus.cloudapp.azure.com
+    echo https://$(whoami)-worker.$(az group show -n "$(whoami)-k8s101-workshop" --query location -o tsv).cloudapp.azure.com
     ```
 
     The output should look something like this:
