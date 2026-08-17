@@ -33,7 +33,7 @@ scripts/faig/                  — lab automation students actually run
   values.yaml                  — self-contained values overlay
   llm-stack/                   — Helm chart (chatbot, llamacpp, landing subtrees)
   plans/, specs/               — historical design docs for the chart (tracked)
-plans/                         — plan/log/spec files for this repo (see gotchas); plans/README.md explains why
+plans/                         — plan/log/spec files, UNTRACKED here by team choice (see gotchas)
 Jenkinsfile                    — GitHub commit-status pipeline; its content-check stage is disabled
 fdevsec.yaml                   — FortiDevSec scan config
 .github/workflows/
@@ -67,9 +67,9 @@ There is no test suite. Content changes are validated by rendering locally.
 
 - **No `hugo.toml` or `config.toml` here — on purpose.** Hugo config, theme, and layouts come from CentralRepo, which the container mounts alongside this repo. To change the site title, banner text, author, or sidebar shortcuts, edit **`scripts/repoConfig.json`**.
 - **`docs/` is doubly machine-owned — never put anything there.** `.gitignore` excludes `docs/`, and `CentralRepo/scripts/batch_repo_update.py` hardcodes `FOLDERS_TO_DELETE = ["docs"]` with `BRANCH = "main"`, deleting every blob under `docs/` via the GitHub tree API and pushing that deletion straight to `main`. Nuance: that script does **not** read `repo_upgrade_spec.json` — the spec file documents the same lists but is not what executes, so the two can silently drift.
-- **Plan/log/spec files go in root-level `plans/`, not `docs/plans/`.** `plans/` is inert to Hugo (Hugo only reads `content/`, `layouts/`, `static/`, `assets/`, `data/`, `i18n/`, `archetypes/`, `themes/`) and is outside `FOLDERS_TO_DELETE`. `plans/README.md` in this repo states the convention.
-- **`.gitignore` previously listed `plans/` and `specs/`; those two lines were just removed** so the new convention can be tracked. If a teammate re-adds them, treat it as a deliberate opt-out worth a conversation, not a silent revert.
-  - Side effect of the old ignore: `scripts/faig/plans/` and `scripts/faig/specs/` are tracked anyway (they predate the ignore lines). Likewise `package.json` / `package-lock.json` are listed in `.gitignore` but tracked.
+- **Plan/log/spec files go in root-level `plans/`, and in THIS repo they stay untracked.** `.gitignore` lines 10–11 list `plans/` and `specs/` — that is a deliberate team choice and it stands. Write plan files to `plans/` as normal; they live on your machine only. **Do not `git add -f` them, and do not remove those `.gitignore` lines** (that was tried and reverted). Root-level `plans/` is still the right directory rather than `docs/plans/`: it is inert to Hugo (which reads only `content/`, `layouts/`, `static/`, `assets/`, `data/`, `i18n/`, `archetypes/`, `themes/`) and outside `FOLDERS_TO_DELETE`, so nothing publishes or gets deleted either way.
+  - The other five Hugo workshop repos *do* track `plans/` and carry a `plans/README.md`. This repo is the deliberate exception — don't "fix" the inconsistency.
+  - Not affected by the ignore: `scripts/faig/plans/` and `scripts/faig/specs/` are tracked (they predate the ignore lines). Likewise `package.json` / `package-lock.json` are listed in `.gitignore` but tracked.
 - **The `workshopTitle` in `scripts/repoConfig.json` has a typo:** `"How to Deply and Use FortiAIGate"`. It renders on the published site. Fix it there, not in content. Other live values: `author` `"Tom Walsh"`, `errorLevel` `"warning"`, `marketingCode` `"FortiHugo202"`, `themeVariant` `"CloudCSEMovie"`.
 - **This repo *does* carry lab automation.** `scripts/faig/deploy.sh` is invoked directly by students — `content/01_Environment_Setup/01_setting_up_the_llm.md` tells them to `cd $HOME/faig-training-workshop/scripts/faig/ && ./deploy.sh`. Content and chart must stay in sync: the script provisions an in-cluster NFS server + default StorageClass, validates an RWX test volume, and runs `helm upgrade --install` for the `llm-stack` release.
 - **`.github/workflows/static.yml` is template-managed.** `batch_repo_update.py` overwrites it from the operator's CentralRepo checkout (`FILES_TO_COPY`) — hand-edits get lost. It also copies in a `Dockerfile` (this repo currently has none) and deletes `layouts/shortcodes/FTNThugoFlow.html`, `docker-compose.yml`, `hugo.toml`, `config.toml`, and the `scripts/docker_*.sh` set. `FTNThugoFlow.html` is present here and unused by content — expect it to disappear on the next batch run.
@@ -97,7 +97,7 @@ Optional locally: `DOCKER_CONTEXT` / `DOCKER_HOST` — fortihugorunner honors th
 
 **Change site chrome** (title, banner, sidebar links): edit `scripts/repoConfig.json`.
 
-**Plan/log/spec files**: write them to root-level `plans/` as `YYYY-MM-DD_<git-username>_<slug>.md` (+ `.log.md`, optional `.spec.md`). Never `docs/plans/`.
+**Plan/log/spec files**: write them to root-level `plans/` as `YYYY-MM-DD_<git-username>_<slug>.md` (+ `.log.md`, optional `.spec.md`). Never `docs/plans/`. In this repo `plans/` is gitignored on purpose, so they stay local — don't force-add them.
 
 **Change the lab workload**: edit `scripts/faig/llm-stack/` + `scripts/faig/values.yaml`, then update the content pages that walk students through `deploy.sh` output.
 
