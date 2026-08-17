@@ -33,7 +33,7 @@ scripts/faig/                  — lab automation students actually run
   values.yaml                  — self-contained values overlay
   llm-stack/                   — Helm chart (chatbot, llamacpp, landing subtrees)
   plans/, specs/               — Tom's design docs for the chart (tracked)
-plans/                         — Jeff's plan/log/spec files (tracked); see gotchas re: /specs/
+plans/                         — Jeff's plan/log/spec files, `NNNN_` prefixed (tracked); see gotchas re: /specs/
 Jenkinsfile                    — GitHub commit-status pipeline; its content-check stage is disabled
 fdevsec.yaml                   — FortiDevSec scan config
 .github/workflows/
@@ -99,7 +99,7 @@ Optional locally: `DOCKER_CONTEXT` / `DOCKER_HOST` — fortihugorunner honors th
 
 **Change site chrome** (title, banner, sidebar links): edit `scripts/repoConfig.json`.
 
-**Plan/log/spec files**: write them to root-level `plans/` as `YYYY-MM-DD_<git-username>_<slug>.md` (+ `.log.md`, optional `.spec.md`). Never `docs/plans/`. In this repo `plans/` is gitignored on purpose, so they stay local — don't force-add them.
+**Plan/log/spec files**: write them to root-level `plans/` as `NNNN_YYYY-MM-DD_<git-username>_<slug>.md` (+ optional `.log.md`, `.spec.md`) and **commit them** — root `plans/` is tracked here, same as the other five Hugo repos. Never `docs/plans/`. `NNNN` is a per-repo sequence; the log is optional; on completion, durable facts get promoted into this file and the plan is left to decay. See `plans/README.md`.
 
 **Change the lab workload**: edit `scripts/faig/llm-stack/` + `scripts/faig/values.yaml`, then update the content pages that walk students through `deploy.sh` output.
 
