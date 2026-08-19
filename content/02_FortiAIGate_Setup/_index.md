@@ -71,12 +71,18 @@ One of the files included with the FortiAIGate containers is a file that contain
     namespace/fortiaigate created
     ```
 
-1. Now that we have everything configured and ready to go, we can finally install FortiAIGate. Run the following command:
+1. Now that we have everything configured and ready to go, we can finally install FortiAIGate. The second values file keeps shared application storage on NFS while placing PostgreSQL and Redis on dedicated local storage for this single-worker workshop. Run the following command:
 
     ```
     cd $HOME
-    helm install fortiaigate ./fortiaigate -n fortiaigate -f values.yaml
+    helm upgrade --install fortiaigate ./fortiaigate \
+      -n fortiaigate \
+      -f values.yaml \
+      -f "$HOME/faig-training-workshop/scripts/faig/fortiaigate-local-db.yaml" \
+      --wait --timeout 30m
     ```
+
+    This command waits for the deployment to become ready and can take several minutes.
 
     The output should return the following at the top:
 
@@ -114,6 +120,8 @@ One of the files included with the FortiAIGate containers is a file that contain
     ```
 
     Change out the &lt;name of pod&gt; to match the name of the pod (api, core, webui, etc).
+
+    If API, core, or logd reports PostgreSQL `P1000` authentication failures, follow [Troubleshooting PostgreSQL Startup]({{< relref "01_troubleshoot_postgresql_startup" >}}).
 
 1. Once you have FortiAIGate up and running run the following command in Cloud Console and then click on the link it generates:
 

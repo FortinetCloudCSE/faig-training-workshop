@@ -1,0 +1,35 @@
+# Workshop storage overlay for the single-worker Azure lab.
+#
+# Keep FortiAIGate's shared RWX application claim on the default NFS class, but
+# place PostgreSQL and Redis on dedicated node-local RWO claims. This avoids
+# letting transient NFS latency interrupt PostgreSQL's first-time initialization.
+# local-path is appropriate for this disposable lab; it is not a production HA
+# or durability recommendation.
+
+postgresql:
+  volumePermissions:
+    enabled: true
+  primary:
+    startupProbe:
+      enabled: true
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 180
+    persistence:
+      enabled: true
+      existingClaim: ""
+      storageClass: local-path
+      accessModes:
+        - ReadWriteOnce
+      size: 16Gi
+
+redis:
+  master:
+    persistence:
+      enabled: true
+      existingClaim: ""
+      storageClass: local-path
+      accessModes:
+        - ReadWriteOnce
+      size: 4Gi
