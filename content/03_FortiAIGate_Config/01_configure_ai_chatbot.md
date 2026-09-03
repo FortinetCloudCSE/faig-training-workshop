@@ -27,7 +27,7 @@ The next steps we will configure the the AI Chatbot to talk to FortiAIGate inste
 1. Back in the Azure Portal, use the Cloud Console to run the following command:
 
     ```
-    echo http://$(whoami)-worker.eastus.cloudapp.azure.com/v1/hrbot
+    echo http://$(whoami)-worker.centralus.cloudapp.azure.com/v1/hrbot
     ```
 
     Copy the URL generated and use it in the next step.
