@@ -7,5 +7,4 @@ package-lock.json
 package.json
 /venv
 fortihugorunner
-plans/
-specs/
+/specs/
